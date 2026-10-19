@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -5,9 +6,12 @@ using Hummingbird.Airlines.Backend.Domain;
 using Hummingbird.Airlines.Backend.Services;
 using Hummingbird.Airlines.Backend.Storage;
 using Hummingbird.Airlines.Middleware.Api;
+using Hummingbird.Airlines.Middleware.Grpc;
+using Hummingbird.Airlines.Middleware.Graph;
 using Hummingbird.Airlines.Middleware.Soap;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using SoapCore;
 using System.Threading.RateLimiting;
 
@@ -21,6 +25,43 @@ builder.WebHost.ConfigureKestrel(options =>
     options.Limits.MaxConcurrentConnections = 400;
     options.Limits.MaxRequestBodySize =
         builder.Configuration.GetValue<long?>("Protection:MaxRequestBodySizeBytes") ?? 262_144;
+
+    // Long-lived SSE connections sit in deliberate write silence between keepalives;
+    // the default minimum response data rate (5 s grace) would abort them.
+    options.Limits.MinResponseDataRate = null;
+
+    // ---------------------------------------------------------------------
+    // Port layout. Calling Kestrel's Listen() means app.Urls / ASPNETCORE_URLS
+    // are fully ignored, so every port is resolved here in a single place -
+    // which keeps the REST/SOAP ports and the gRPC HTTP/2 listener consistent:
+    //   Linux App Service front end -> 8080 (set ASPNETCORE_HTTP_PORTS=8080),
+    //   local development           -> launchSettings / fallback 5000.
+    // ---------------------------------------------------------------------
+    var publicPortRaw =
+        Environment.GetEnvironmentVariable("ASPNETCORE_HTTP_PORTS")
+        ?? Environment.GetEnvironmentVariable("PORT")
+        ?? "5000";
+    foreach (var portEntry in publicPortRaw.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+    {
+        options.ListenAnyIP(int.Parse(portEntry, CultureInfo.InvariantCulture),
+            listen => listen.Protocols = HttpProtocols.Http1);
+    }
+
+    var internalUrl = builder.Configuration["InternalUrl"] ?? "http://127.0.0.1:5150";
+    var internalUri = new Uri(internalUrl);
+    var internalIp = IPAddress.TryParse(internalUri.Host, out var parsedIp)
+        ? parsedIp
+        : IPAddress.Loopback;
+    options.Listen(internalIp, internalUri.Port, listen => listen.Protocols = HttpProtocols.Http1);
+
+    // Dedicated cleartext HTTP/2 listener for gRPC: plain HTTP ports cannot negotiate
+    // h2c, so gRPC gets its own port with HTTP/2 only (clients use prior knowledge).
+    // Set Grpc:HttpPort to 0 to disable the gRPC transport entirely.
+    var grpcPort = builder.Configuration.GetValue("Grpc:HttpPort", 5007);
+    if (grpcPort is > 0)
+    {
+        options.ListenAnyIP(grpcPort, listen => listen.Protocols = HttpProtocols.Http2);
+    }
 });
 
 // The service runs behind cloud proxies (Azure App Service front end) whose networks
@@ -96,6 +137,19 @@ builder.Services.AddControllers()
 
 builder.Services.AddHttpContextAccessor();
 
+// gRPC server plumbing: the BaggageClaim service below plus server reflection so
+// tooling (grpcurl, gRPC UI, Aethrix Studio) can enumerate it without a proto copy.
+builder.Services.AddGrpc();
+builder.Services.AddGrpcReflection();
+builder.Services.AddSingleton<BaggageClaimBoard>();
+
+// GraphQL (HotChocolate): baggage claim queries + subscriptions over WebSocket at /graphql;
+// the SDL is also served at /graphql/schema.graphql for spec importers.
+builder.Services.AddBagClaimGraph();
+
+// Gate turnaround feed (REST snapshot + interactive WebSocket for Terminal 2E departures).
+builder.Services.AddSingleton<TurnaroundFeed>();
+
 // Required by SoapCore >= 1.2 so FaultException<T> is serialized into a proper
 // SOAP fault response instead of crashing while building the error message.
 builder.Services.AddSingleton<SoapCore.Extensibility.IFaultExceptionTransformer>(
@@ -138,7 +192,7 @@ builder.Services.AddSwaggerGen(options =>
     };
     foreach (var xmlFile in xmlFiles)
     {
-        var path = Path.Combine(AppContext.BaseDirectory, xmlFile);
+        var path = System.IO.Path.Combine(AppContext.BaseDirectory, xmlFile);
         if (File.Exists(path))
         {
             options.IncludeXmlComments(path, includeControllerXmlComments: true);
@@ -156,15 +210,68 @@ app.UseForwardedHeaders();
 
 app.UseMiddleware<LegacyExceptionMiddleware>();
 
-// Default document + static assets for the service directory page.
+// Default document + static assets for the service directory page. The content-type map
+// is extended with YAML so the AsyncAPI spec under /specs/ is served (it is 404'd by the
+// default provider because *.yaml is not in the built-in map).
 app.UseDefaultFiles();
-app.UseStaticFiles();
+var staticContentTypes = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+staticContentTypes.Mappings[".yaml"] = "application/yaml";
+staticContentTypes.Mappings[".yml"] = "application/yaml";
+app.UseStaticFiles(new StaticFileOptions { ContentTypeProvider = staticContentTypes });
+
+// Enables the WebSocket upgrade for every endpoint that opts in
+// (the gate turnaround feed below; HotChocolate handles /graphql upgrades itself).
+app.UseWebSockets();
 
 // Interactive REST documentation (SOAP side publishes ?wsdl per endpoint).
 app.UseSwagger();
 app.UseSwaggerUI(options => options.SwaggerEndpoint("/swagger/v1/swagger.json", "Hummingbird Gateway v1"));
 
 app.MapControllers();
+
+// gRPC facade over the baggage claim board (unary + server streaming).
+// Reachable only on the gRPC HTTP/2 listener configured above.
+app.MapGrpcService<BaggageClaimGrpcService>();
+
+// gRPC bidirectional bag scanner session (make-up room, client streams scans,
+// server streams per-scan dispositions + a session summary on half-close).
+app.MapGrpcService<BaggageScannerGrpcService>();
+
+// gRPC server reflection (also HTTP/2 only) for discovery by external tools.
+app.MapGrpcReflectionService();
+
+// GraphQL waterhole: IDE/POST endpoint at /graphql (subscriptions over WebSocket there)
+// plus a downloadable SDL for spec importers (Aethrix object model generation).
+app.MapGraphQL("/graphql");
+app.MapGraphQLSchema("/graphql/schema.graphql");
+
+// Gate turnaround feed: REST snapshot + interactive WebSocket.
+app.MapGateFeed();
+
+// Downloadable proto contracts for spec importers (Aethrix Studio ships protoc and
+// resolves google/protobuf/* well-known types itself). The literal `.proto` suffix in the
+// template matters: with the broader "/specs/{file}" pattern, endpoint routing would claim
+// EVERYTHING under /specs/ (routing runs first and precedence-beats the static files
+// middleware), and the AsyncAPI YAML next to the protos would 404.
+app.MapGet("/specs/{protoName}.proto", (string protoName) =>
+{
+    var allowed = new[] { "baggageclaim", "baggagescanner" };
+    if (!allowed.Contains(protoName, StringComparer.OrdinalIgnoreCase))
+    {
+        return Results.Problem(
+            title: "Unknown spec file",
+            detail: $"Serve one of: {string.Join(", ", allowed.Select(name => $"{name}.proto"))} (plus /specs/asyncapi.yaml and /graphql/schema.graphql).",
+            statusCode: StatusCodes.Status404NotFound);
+    }
+
+    var path = System.IO.Path.Combine(AppContext.BaseDirectory, "Protos", $"{protoName}.proto");
+    return File.Exists(path)
+        ? Results.File(path, "text/plain; charset=utf-8")
+        : Results.Problem(
+            title: "Spec file not deployed",
+            detail: "The proto contracts are not deployed next to the binary (dev: dotnet run).",
+            statusCode: StatusCodes.Status404NotFound);
+});
 
 // Current protection settings, rendered on the default page.
 app.MapGet("/api/v1/_protection", (IConfiguration config) =>
@@ -207,24 +314,9 @@ app.MapGet("/api/v1/_protection", (IConfiguration config) =>
     options.IndentXml = true;
 });
 
-// Extra loopback binding used by the middleware to reach the legacy endpoints
-// through real HTTP round-trips inside the same process/container.
-// Note: touching app.Urls disables Kestrel's implicit defaults (including the
-// platform-injected ASPNETCORE_HTTP_PORTS), so resolve the public port ourselves:
-//   Linux App Service front end -> 8080 (set ASPNETCORE_HTTP_PORTS=8080),
-//   local development           -> launchSettings / fallback 5000.
-var publicPort =
-    Environment.GetEnvironmentVariable("ASPNETCORE_HTTP_PORTS")
-    ?? Environment.GetEnvironmentVariable("PORT")
-    ?? "5000";
-
-var internalUrl = app.Configuration["InternalUrl"] ?? "http://127.0.0.1:5150";
-
-foreach (var portEntry in publicPort.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-{
-    app.Urls.Add($"http://+:{portEntry}");
-}
-app.Urls.Add(internalUrl);
+// Port layout note: all endpoints (public REST/SOAP ports, internal SOAP loopback and
+// the gRPC HTTP/2 listener) are bound in ConfigureKestrel above. app.Urls is unused here
+// on purpose - mixing both binding styles makes Kestrel drop the app.Urls set.
 
 app.Run();
 

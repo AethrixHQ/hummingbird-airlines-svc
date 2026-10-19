@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+// Baggage scanner session (make-up room) of the departure control system.
+//
+// The client (scanner cart) opens a bidirectional session and streams scans;
+// the server acknowledges every scan individually and, when the client
+// half-closes its side, sends one final session summary. All validation is
+// deterministic within the session - no state is kept across connections.
+//
+//   rpc ScanBags(stream ScanRequest) returns (stream ScannerUpdate)
+//
+// Acknowledgements (Disposition):
+//   ACCEPTED         - tag filed into the make-up belt (1..5)
+//   MALFORMED        - tag does not match IATA shape (2 letters + 6 digits)
+//   DUPLICATE        - same tag already accepted within this session
+//   UNKNOWN_ZONE     - zone not part of the make-up map (MU1..MU3)
+//   LIMIT_EXCEEDED   - more than 8 bags accepted in one session
+
+import "google/protobuf/timestamp.proto";
+
+option csharp_namespace = "Hummingbird.Airlines.Middleware.Grpc";
+
+service BaggageScanner {
+  // Bidirectional scan/acknowledgement session.
+  // Client half-close (content-complete) triggers the session summary.
+  rpc ScanBags(stream ScanRequest) returns (stream ScannerUpdate);
+}
+
+message ScanRequest {
+  // Client-defined correlation id; echoed back on the matching ack.
+  string scan_id = 1;
+  // IATA bag tag barcode, e.g. HB123456 (2 letters + 6 digits).
+  string tag_number = 2;
+  // Make-up zone code. Known values: MU1, MU2, MU3 (default when empty: MU1).
+  string zone = 3;
+}
+
+message ScannerUpdate {
+  // Echoes the ScanRequest.scan_id for acks; empty for the summary.
+  string scan_id = 1;
+  oneof update {
+    ScanAck ack = 2;
+    ScanSummary summary = 3;
+  }
+}
+
+message ScanAck {
+  Disposition disposition = 1;
+  // Human-readable reason, e.g. "bag filed to make-up belt 3".
+  string message = 2;
+  // Session counters as of this acknowledgement.
+  int32 accepted_count = 3;
+  int32 rejected_count = 4;
+  // Deterministic make-up belt (1..5) derived from the tag; 0 when rejected.
+  int32 belt = 5;
+}
+
+enum Disposition {
+  DISPOSITION_UNSPECIFIED = 0;
+  DISPOSITION_ACCEPTED = 1;
+  DISPOSITION_MALFORMED = 2;
+  DISPOSITION_DUPLICATE = 3;
+  DISPOSITION_UNKNOWN_ZONE = 4;
+  DISPOSITION_LIMIT_EXCEEDED = 5;
+}
+
+message ScanSummary {
+  // Gateway-assigned session id for traceability (scanner-session-<ticks>).
+  string session_id = 1;
+  google.protobuf.Timestamp closed_at = 2;
+  int32 total_scans = 3;
+  int32 accepted = 4;
+  int32 rejected = 5;
+  // Disposition -> occurrence count (accepted/malformed/duplicate/...).
+  map<string, int32> by_disposition = 6;
+}

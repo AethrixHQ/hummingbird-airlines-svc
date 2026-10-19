@@ -57,6 +57,10 @@
     border-radius: 4px; padding: 2px 7px; vertical-align: 2px;
   }
   .card .kind.soap { background: var(--teal); }
+  .card .kind.grpc { background: var(--aqua); }
+  .card .kind.sse  { background: var(--warn); }
+  .card .kind.graphql { background: #e10098; }
+  .card .kind.ws      { background: #00b8d9; }
   .card p { color: var(--text-2); margin: 8px 0 10px; font-size: 13.5px; }
   .card ul { list-style: none; margin: 0; padding: 0; font-family: var(--font-mono); font-size: 12.5px; }
   .card li { margin: 3px 0; }
@@ -116,7 +120,10 @@
     <img src="Hummingbird-Airlines.png" alt="Hummingbird Airlines">
     <div>
       <h1>Hummingbird Airlines &mdash; Service Directory</h1>
-      <p class="tagline">One REST middleware in front of three simulated SOAP&nbsp;1.1 legacy systems. Built for API testing (Aethrix).</p>
+      <p class="tagline">One REST middleware in front of three simulated SOAP&nbsp;1.1 legacy systems.
+         Live feeds (baggage claim board, bag scanner, gate turnaround) ride on SSE, gRPC, GraphQL
+         and WebSocket; contract documents are downloadable for API importers.
+         Built for API testing (Aethrix).</p>
     </div>
   </header>
 
@@ -164,6 +171,174 @@
       </ul>
     </div>
   </div>
+
+  <h2>Streaming &amp; gRPC (baggage claim board)</h2>
+  <div class="grid">
+    <div class="card">
+      <h3>Baggage Claim Board <span class="kind sse">HTTP+SSE</span></h3>
+      <p>Arrivals board of CDG Terminal&nbsp;2E: belts (tapis) 1&ndash;5 fed by partner airlines
+         (HB/AF/BA/CA/LH/EK), one arrival every six board-minutes. Add <code>?speed=60</code> to
+         compress the clock and watch transitions within seconds.</p>
+      <ul>
+        <li><a href="/api/v2/baggage-claim">GET /api/v2/baggage-claim</a> (snapshot)</li>
+        <li>/api/v2/baggage-claim/{flightNumber} (404 ARRIVAL_NOT_FOUND)</li>
+        <li><a href="/api/v2/baggage-claim/stream?speed=60">GET /api/v2/baggage-claim/stream</a> (live, resumable via Last-Event-ID)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>BaggageClaimService <span class="kind grpc">gRPC</span></h3>
+      <p>Unary + server-streaming over cleartext HTTP/2 (prior knowledge). Server reflection
+         is enabled. Proto contract: <a href="/specs/baggageclaim.proto">/specs/baggageclaim.proto</a>;
+         a ready-made console client lives in <code>tools/GrpcProbe</code>.</p>
+      <ul>
+        <li><code>BaggageClaim/GetBoard</code> (unary)</li>
+        <li><code>BaggageClaim/GetArrival</code> (unary, 5=NOT_FOUND)</li>
+        <li><code>BaggageClaim/WatchBoard</code> (server streaming)</li>
+        <li><a href="/api/v1/_protection">gRPC port:</a> localhost:5007 (Grpc:HttpPort)</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>More protocols (bag scanner &middot; GraphQL &middot; gate feed)</h2>
+  <div class="grid">
+    <div class="card">
+      <h3>BaggageScannerService <span class="kind grpc">gRPC bidi</span></h3>
+      <p>Make-up room bag scanner: the client streams scans, the server streams one
+         disposition per bag (accepted / duplicate / malformed / unknownZone / limitExceeded)
+         and closes with a session summary after the client half-closes. No cross-session state;
+         accepted bags are routed to belts by a deterministic hash.</p>
+      <ul>
+        <li><code>BaggageScanner/ScanBags</code> (bidirectional streaming)</li>
+        <li>Max 8 accepted bags per session, tag shape <code>^[A-Z]{2}[0-9]{6}$</code></li>
+        <li>Zones: MU1 (default) / MU2 / MU3</li>
+        <li>Probe: <code>dotnet run --project tools/GrpcProbe -- scan</code></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>GraphQL <span class="kind graphql">HTTP + WS</span></h3>
+      <p>Baggage claim board + departure check-in and bag drop: queries
+         <code>bagClaimBoard</code>, <code>bagClaimArrival</code> (missing flight &rarr; error
+         code ARRIVAL_NOT_FOUND), <code>bagClaimBelt</code>, subscription
+         <code>bagClaimEvents(speed, sinceSeq)</code>, and the mutations listed in the
+         GraphQL operations table below.</p>
+      <ul>
+        <li><a href="/graphql">/graphql</a> (IDE and POST endpoint)</li>
+        <li><a href="/graphql/schema.graphql">/graphql/schema.graphql</a> (SDL)</li>
+        <li>Subscriptions over graphql-transport-ws on the same URL</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Gate turnaround feed <span class="kind ws">WebSocket + REST</span></h3>
+      <p>Departure-side gate board (gates 1&ndash;8, one Hummingbird rotation per gate every
+         16 feed-minutes): parking &rarr; boarding (+4) &rarr; final call (+8) &rarr; push-back
+         (+10) &rarr; release (+12) &rarr; complete (+16).</p>
+      <ul>
+        <li><a href="/api/v2/gates?speed=60">GET /api/v2/gates</a> (snapshot)</li>
+        <li>WS /api/v2/gates/ws &mdash; <code>{"type":"subscribe","speed":60}</code></li>
+        <li>Frames: snapshot / gateEvent / ping-pong / error envelope</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>Specifications &mdash; importable documents</h2>
+  <p class="tagline">Every machine-readable contract of the service is a plain URL. Point the
+     Aethrix Studio import wizard (or Postman, SoapUI, protoc, graphql-codegen&hellip;) at one of
+     these addresses; every document is self-contained (no external references).</p>
+  <table>
+    <thead><tr><th>Spec</th><th>Format</th><th>Covers</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><a href="/specs/asyncapi.yaml">/specs/asyncapi.yaml</a></td>
+        <td class="mono">AsyncAPI 3.0.3</td>
+        <td>SSE baggage claim stream + gate turnaround WebSocket (message payload JSON schemas)</td>
+      </tr>
+      <tr>
+        <td><a href="/specs/baggageclaim.proto">/specs/baggageclaim.proto</a></td>
+        <td class="mono">Protobuf 3</td>
+        <td>gRPC BaggageClaim service (unary + server streaming)</td>
+      </tr>
+      <tr>
+        <td><a href="/specs/baggagescanner.proto">/specs/baggagescanner.proto</a></td>
+        <td class="mono">Protobuf 3</td>
+        <td>gRPC BaggageScanner service (bidirectional)</td>
+      </tr>
+      <tr>
+        <td><a href="/graphql/schema.graphql">/graphql/schema.graphql</a></td>
+        <td class="mono">GraphQL SDL</td>
+        <td>Queries, mutations and subscriptions over the baggage claim board</td>
+      </tr>
+      <tr>
+        <td><a href="/swagger/v1/swagger.json">/swagger/v1/swagger.json</a></td>
+        <td class="mono">OpenAPI 3</td>
+        <td>REST v1 gateway (bookings, flights, baggage, admin)</td>
+      </tr>
+      <tr>
+        <td class="mono"><a href="/soap/booking?wsdl">/soap/booking?wsdl</a> &middot;
+          <a href="/soap/flights?wsdl">/soap/flights?wsdl</a> &middot;
+          <a href="/soap/luggage?wsdl">/soap/luggage?wsdl</a></td>
+        <td class="mono">WSDL 1.1</td>
+        <td>Three simulated SOAP 1.1 legacy systems</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>GraphQL operations &mdash; POST <a href="/graphql">/graphql</a></h2>
+  <p class="tagline">Roots: <code>Query</code>, <code>Mutation</code>, <code>Subscription</code>.
+     The subscription runs on the same URL over the graphql-transport-ws protocol.
+     checkIn / dropBag travel through the same legacy luggage path as
+     <code>POST /api/v1/bookings/*</code>, so error codes are identical across transports.
+     scanBag sessions are scoped by the sessionId argument and expire after 30 minutes
+     of inactivity.</p>
+  <table>
+    <thead><tr><th>Method / address</th><th>Operation</th><th>Arguments</th><th>Returns &middot; error codes (extensions.code)</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="mono">POST /graphql</td><td class="mono">bagClaimBoard</td>
+        <td class="mono">speed: Int = 1</td>
+        <td>BagClaimSnapshot (belts + arrivals)</td>
+      </tr>
+      <tr>
+        <td class="mono">POST /graphql</td><td class="mono">bagClaimArrival</td>
+        <td class="mono">flightNumber: String!, speed: Int = 1</td>
+        <td>BagClaimArrival &middot; errors: ARRIVAL_NOT_FOUND</td>
+      </tr>
+      <tr>
+        <td class="mono">POST /graphql</td><td class="mono">bagClaimBelt</td>
+        <td class="mono">number: Int!, speed: Int = 1</td>
+        <td>BagClaimBelt or null</td>
+      </tr>
+      <tr>
+        <td class="mono">WS /graphql</td><td class="mono">bagClaimEvents</td>
+        <td class="mono">speed: Int = 60, sinceSeq: Long = 0</td>
+        <td>BagClaimEvent stream (replays the backlog, then live)</td>
+      </tr>
+      <tr>
+        <td class="mono">POST /graphql</td><td class="mono">checkIn</td>
+        <td class="mono">input: CheckInInput! (bookingRef: ID!, bags: [BagInput!])</td>
+        <td>CheckInPayload (boarding pass + bags + warnings) &middot; errors:
+            BOOKING_NOT_FOUND, CHECKIN_CLOSED, ALREADY_CHECKED_IN,
+            BAGGAGE_TYPE_LIMIT, FLIGHT_DEPARTED, INVALID_REQUEST, LEGACY_TIMEOUT, LEGACY_UNAVAILABLE</td>
+      </tr>
+      <tr>
+        <td class="mono">POST /graphql</td><td class="mono">dropBag</td>
+        <td class="mono">input: DropBagInput! (bookingRef: ID!, bag: BagInput!)</td>
+        <td>DropBagPayload (full bag list + warnings) &middot; errors:
+            BOOKING_NOT_FOUND, CHECKIN_REQUIRED, CHECKIN_CLOSED, BAGGAGE_TYPE_LIMIT,
+            FLIGHT_DEPARTED, INVALID_REQUEST, LEGACY_TIMEOUT, LEGACY_UNAVAILABLE</td>
+      </tr>
+      <tr>
+        <td class="mono">POST /graphql</td><td class="mono">scanBag</td>
+        <td class="mono">input: ScanBagInput! (sessionId: ID!, scanId, tagNumber, zone optional &rarr; MU1)</td>
+        <td>BagScanAck (disposition ACCEPTED/DUPLICATE/MALFORMED/UNKNOWN_ZONE/LIMIT_EXCEEDED as data;
+            belt 1..5 by FNV-1a, 0 when rejected) &middot; errors: INVALID_REQUEST (blank sessionId)</td>
+      </tr>
+      <tr>
+        <td class="mono">POST /graphql</td><td class="mono">resetScanSession</td>
+        <td class="mono">sessionId: ID!</td>
+        <td>ResetScanSessionPayload (idempotent)</td>
+      </tr>
+    </tbody>
+  </table>
 
   <h2>Hot flights <span style="float:right"><button class="refresh" onclick="refresh()">Refresh</button></span></h2>
   <table id="flights">

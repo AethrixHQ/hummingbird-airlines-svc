@@ -1,0 +1,128 @@
+syntax = "proto3";
+
+// Baggage claim display system of the Hummingbird arrivals terminal (CDG - Terminal 2E).
+// Five belts ("tapis" 1..5) are simulated; one partner arrival lands every 6 minutes and
+// the whole board is a deterministic function of the current clock.
+//
+// Change events carry a UTC-millisecond sequence that is identical across the SSE and
+// gRPC transports, so cross-protocol clients can be correlated.
+
+import "google/protobuf/timestamp.proto";
+
+option csharp_namespace = "Hummingbird.Airlines.Middleware.Grpc";
+
+service BaggageClaim {
+  // Unary: one full snapshot of the baggage claim board, belt by belt.
+  rpc GetBoard(GetBoardRequest) returns (BoardSnapshot);
+
+  // Unary: locate one arrival flight and the belt unloading it.
+  // Fails with gRPC 5 (NOT_FOUND) and code ARRIVAL_NOT_FOUND when the flight
+  // is unknown or has left the board.
+  rpc GetArrival(GetArrivalRequest) returns (FlightArrival);
+
+  // Server streaming: watch the board live.
+  // The first message is a full snapshot (unless include_snapshot = false), all
+  // later messages are change events. With last_event_sequence > 0 the stream
+  // first replays every event with a sequence strictly greater than that value.
+  rpc WatchBoard(WatchBoardRequest) returns (stream BoardUpdate);
+}
+
+message GetBoardRequest {
+  // Reserved for a future multi-airport board; ignored (the board is CDG T2E).
+  string airport = 1;
+  // Time compression factor (1..60). 1 = plain real time; 30 compresses the
+  // 6-minute arrival cadence down to 12 wall seconds (handy for test tools).
+  int32 speed = 2;
+}
+
+message WatchBoardRequest {
+  // Reserved for a future multi-airport board; ignored (the board is CDG T2E).
+  string airport = 1;
+  // Emit one BoardUpdate.snapshot before the event stream (default true when unset).
+  bool include_snapshot = 2;
+  // UTC board-time in ms. 0 (default) = start from the current snapshot.
+  int64 last_event_sequence = 3;
+  // Time compression factor (1..60), same semantics as GetBoardRequest.speed.
+  int32 speed = 4;
+}
+
+message GetArrivalRequest {
+  // Hummingbird or partner flight number, e.g. "AF412" (case-insensitive).
+  string flight_number = 1;
+  // Time compression factor (1..60); the state is looked up on that board clock.
+  int32 speed = 2;
+}
+
+enum ArrivalState {
+  ARRIVAL_STATE_UNSPECIFIED = 0;
+  ARRIVAL_STATE_INBOUND = 1;
+  ARRIVAL_STATE_ARRIVED = 2;
+  ARRIVAL_STATE_UNLOADING = 3;
+  ARRIVAL_STATE_LAST_BAG = 4;
+  ARRIVAL_STATE_RELEASED = 5;
+}
+
+enum ChangeKind {
+  CHANGE_KIND_UNSPECIFIED = 0;
+  CHANGE_KIND_FLIGHT_INBOUND = 1;
+  CHANGE_KIND_FLIGHT_ARRIVED = 2;
+  CHANGE_KIND_UNLOADING_STARTED = 3;
+  CHANGE_KIND_LAST_BAG = 4;
+  CHANGE_KIND_BELT_RELEASED = 5;
+  CHANGE_KIND_FLIGHT_OFF_BOARD = 6;
+}
+
+message BeltStatus {
+  // Belt number between 1 and 5.
+  int32 number = 1;
+  bool idle = 2;
+  // Flight currently unloading onto this belt; empty when idle.
+  string flight_number = 3;
+}
+
+message FlightArrival {
+  string flight_number = 1;
+  // Lowercase IATA carrier code, e.g. "af".
+  string airline_code = 2;
+  string airline_name = 3;
+  // Departure airport of the inbound flight.
+  string origin_code = 4;
+  string origin_name = 5;
+  string origin_city = 6;
+  google.protobuf.Timestamp scheduled_arrival = 7;
+  // Belt number (1..5); 0 while the flight is still inbound.
+  int32 belt = 8;
+  ArrivalState state = 9;
+}
+
+message BoardSnapshot {
+  string board_id = 1;
+  string airport_code = 2;
+  string airport_name = 3;
+  string terminal = 4;
+  // Real wall clock instant of generation.
+  google.protobuf.Timestamp generated_at = 5;
+  repeated BeltStatus belts = 6;
+  repeated FlightArrival arrivals = 7;
+  // Board-clock instant the state is rendered for (equals generated_at at speed 1).
+  google.protobuf.Timestamp board_time = 8;
+  double speed = 9;
+}
+
+message BoardEvent {
+  // UTC Unix time in ms (the SSE transport uses the identical value as its event id).
+  int64 sequence = 1;
+  google.protobuf.Timestamp occurred_at = 2;
+  ChangeKind kind = 3;
+  string flight_number = 4;
+  ArrivalState state = 5;
+  // 0 for inbound / off-board events where no belt is involved.
+  int32 belt = 6;
+}
+
+message BoardUpdate {
+  oneof payload {
+    BoardSnapshot snapshot = 1;
+    BoardEvent event = 2;
+  }
+}

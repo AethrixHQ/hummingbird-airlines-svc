@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Google.Protobuf" Version="3.36.2" />
+    <PackageReference Include="Grpc.Net.Client" Version="2.84.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.84.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Shared contracts: compiled for the client side only. -->
+    <Protobuf Include="..\..\src\Hummingbird.Airlines.Middleware\Protos\baggageclaim.proto"
+              GrpcServices="Client"
+              Link="Protos\baggageclaim.proto" />
+    <Protobuf Include="..\..\src\Hummingbird.Airlines.Middleware\Protos\baggagescanner.proto"
+              GrpcServices="Client"
+              Link="Protos\baggagescanner.proto" />
+  </ItemGroup>
+
+</Project>

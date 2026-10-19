@@ -9,9 +9,23 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Grpc.AspNetCore" Version="2.84.0" />
+    <PackageReference Include="Grpc.AspNetCore.Server.Reflection" Version="2.84.0" />
+    <PackageReference Include="HotChocolate.AspNetCore" Version="15.1.*" />
     <PackageReference Include="SoapCore" Version="1.2.1.14" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
     <PackageReference Include="System.ServiceModel.Http" Version="10.0.652802" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Shared contracts: compiled for the gRPC runtime and copied to the output so the
+         /specs/*.proto download endpoints work outside of `dotnet run` too (Grpc.Tools
+         drops the CopyToOutputDirectory metadata on Protobuf items, hence this copy). -->
+    <None Include="Protos\*.proto" Exclude="@(Protobuf)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="Protos\*.proto" GrpcServices="Server" />
   </ItemGroup>
 
   <ItemGroup>

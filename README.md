@@ -40,8 +40,10 @@ Test client (Aethrix)
 dotnet run --project src/Hummingbird.Airlines.Middleware
 # public: http://localhost:5000  (Swagger UI at /swagger)
 # internal SOAP loopback: http://127.0.0.1:5150 (configured in appsettings.json)
+# gRPC:    http://localhost:5007 (cleartext HTTP/2; configured in appsettings.json "Grpc:HttpPort")
 
-./tools/smoke.ps1            # end-to-end smoke suite against http://localhost:5000
+./tools/smoke.ps1                 # end-to-end smoke suite against http://localhost:5000
+./tools/smoke-streaming.ps1       # phase 1+2 protocols: REST v2 board + SSE + gRPC (incl. bidi scanner) + GraphQL + gate WebSocket + spec endpoints
 ```
 
 ## Deployment
@@ -60,6 +62,10 @@ The script publishes (`dotnet publish`), zip-deploys and probes the endpoints.
 Notes:
 * The Linux front end forwards to container port 8080; the app reads it from the
   `ASPNETCORE_HTTP_PORTS=8080` app setting (locally it falls back to 5000).
+* The gRPC listener (port 5007 by default) binds in-process. The public HTTPS front end
+  does not proxy it by default - expose gRPC over HTTPS by App Service's HTTP/2 gRPC
+  support (or An Azure Front Door) if you need it remotely; the SSE/REST streaming
+  surface (port 8080) works out of the box.
 
 ## Endpoints
 
@@ -77,6 +83,17 @@ Notes:
 | `/soap/booking?wsdl` | SOAP 1.1 | reservations system |
 | `/soap/flights?wsdl` | SOAP 1.1 | airport flight control (read-only) |
 | `/soap/luggage?wsdl` | SOAP 1.1 | departure control: check-in + bag drop |
+| `/api/v2/baggage-claim` | REST | arrivals board of the CDG T2E baggage claim (`?speed=` 1..60) |
+| `/api/v2/baggage-claim/{flight}` | REST | one arrival + its belt (404 `ARRIVAL_NOT_FOUND`) |
+| `/api/v2/baggage-claim/stream` | HTTP/SSE | live belt/arrival change feed, resumable via `Last-Event-ID` |
+| `localhost:5007` (gRPC) | gRPC | `BaggageClaim/GetBoard`, `GetArrival`, `WatchBoard` (see below) |
+| `/api/v2/gates` | REST | gate turnaround board of Terminal 2E departures (`?speed=` 1..60) |
+| `/api/v2/gates/ws` | WebSocket | interactive gate feed: `subscribe` / `gateEvent` / ping-pong / error frames (see below) |
+| `/graphql` | GraphQL | baggage claim queries + mutations + subscriptions (graphiql IDE on GET, subscriptions over websocket) |
+| `/graphql/schema.graphql` | GraphQL SDL | schema for importers / code generators |
+| `/specs/asyncapi.yaml` | AsyncAPI 3.0 | SSE baggage claim stream + gate WebSocket message models |
+| `/specs/baggageclaim.proto` | Protobuf | served copy of the BaggageClaim gRPC contract |
+| `/specs/baggagescanner.proto` | Protobuf | served copy of the BaggageScanner gRPC contract (bidirectional) |
 
 REST is documented through **Swagger** (`/swagger`, machine-readable at
 `/swagger/v1/swagger.json`); every SOAP endpoint publishes its **WSDL** at `?wsdl`
@@ -106,6 +123,197 @@ from `T00001`, bag tags from `HB-00000001`, boarding sequences from 201).
 Caveats, by design: it is **global** (no sessions - one call resets the whole server),
 **no concurrency guarantees** (a reset racing with in-flight calls may interleave), chaos
 drills are bypassed so reset always succeeds, and abuse rate limits still apply.
+
+## Baggage claim board (streaming + gRPC)
+
+A second, protocol-rich domain for Aethrix: the **arrivals board of CDG Terminal 2E** -
+five baggage claim belts ("tapis" 1..5) fed by partner arrivals (Hummingbird, Air France,
+British Airways, Air China, Lufthansa, Emirates). One arrival lands every six *board*-minutes;
+each flight runs the lifecycle
+
+```
+inbound (+poll) -> arrived (belt assigned) -> unloading -> lastBag -> beltReleased -> off board
+   -12min            0min                      +2min      +12min    +14min             +18min
+```
+
+The whole board is a **pure function of its (compressed) clock** - nothing is stored, so the
+snapshot is identical on every transport and never needs an admin reset. `speed=60` makes a
+6-minute cadence surface a belt transition every ~6 wall seconds, which turns every stream
+into an actively moving feed during a test.
+
+### HTTP / SSE (`/api/v2/baggage-claim*`)
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/v2/baggage-claim?speed=60` | full snapshot: `generatedAtUtc`, `boardTimeUtc`, `speed`, `belts[1..5]`, `arrivals[]` |
+| `GET /api/v2/baggage-claim/{flight}?speed=60` | one arrival (404 problem `ARRIVAL_NOT_FOUND` when unknown/off-board) |
+| `GET /api/v2/baggage-claim/stream?speed=60` | infinite `text/event-stream` (see framing below) |
+
+SSE framing:
+
+* `retry: 3000` so event-source reconnects recover quickly;
+* initial `event: snapshot` (id = board time in ms) and a fresh snapshot every 20 s;
+* change events named `flightInbound`, `flightArrived`, `unloadingStarted`, `lastBag`,
+  `beltReleased`, `flightOffBoard` - each body carries `{sequence, occurredAtUtc, kind,
+  flightNumber, belt, state}` in the same shapes as the REST endpoints;
+* `: keepalive` comments every 15 s (Kestrel's write-silence abort is disabled for exactly
+  this reason, see `MinResponseDataRate` in `Program.cs`);
+* **resumption**: pass the last event id via the `Last-Event-ID` header or the
+  `lastEventId` query parameter - the stream re-emits everything you missed between your id
+  and "now" (clamped to the board origin), then continues live.
+
+### gRPC (`localhost:5007`, contract in `src/Hummingbird.Airlines.Middleware/Protos/baggageclaim.proto`)
+
+| RPC | Shape | Notes |
+|---|---|---|
+| `BaggageClaim/GetBoard` | unary | full snapshot; `speed` compresses the clock |
+| `BaggageClaim/GetArrival` | unary | single flight; gRPC 5 `NotFound` with code `ARRIVAL_NOT_FOUND` |
+| `BaggageClaim/WatchBoard` | server streaming | first message a snapshot (unless `include_snapshot=false`), then every change event |
+
+* Kestrel uses a **dedicated cleartext HTTP/2 listener** (plain HTTP/1.1 ports cannot
+  negotiate h2c); clients connect with prior knowledge: `GrpcChannel.ForAddress("http://localhost:5007")`.
+* **Server reflection is enabled**, so grpcurl / gRPC UI / Aethrix can discover the service:
+  `grpcurl -plaintext localhost:5007 list`.
+* `WatchBoardRequest.last_event_sequence` replays missed events (same semantics as the SSE id);
+  sequence numbers live on the board clock, so resume with the same `speed` the events were
+  produced with.
+* The port and the listener are additive: set `Grpc:HttpPort: 0` to switch gRPC off and the
+  REST/SOAP behaviour is untouched.
+
+Event sequence numbers (SSE `id` = gRPC `BoardEvent.sequence` = board time in ms) are shared
+across both transports, so a test tool can consume them simultaneously and correlate.
+
+### Probe + smoke for the streaming surface
+
+```powershell
+dotnet run --project tools/GrpcProbe -- table 60        # unary board print
+dotnet run --project tools/GrpcProbe -- find LH426 60   # unary lookup (belt, state)
+dotnet run --project tools/GrpcProbe -- watch 30 60     # 30 s server-stream sample
+dotnet run --project tools/GrpcProbe -- scan            # bidi scanner demo (14 scans, all dispositions)
+./tools/smoke-streaming.ps1                             # REST-v2 + SSE + gRPC (incl. scanner) + GraphQL (queries/mutations/subscription) + gate-WS smoke (needs pwsh 7)
+```
+
+Note: the board uses its own partner-arrival feed - its "AF/BA/CA..." flight numbers are unrelated
+to the internal Hummingbird booking schedule ("HB..."), so tests of both domains stay isolated.
+
+## Phase 2 - scanner, GraphQL and the gate turnaround feed
+
+Phase 2 added three protocol surfaces (all additive; nothing about the REST/SOAP
+v1 contract changed). They share the deterministic clock described above; the GraphQL
+mutation stage (`checkIn`/`dropBag`/`scanBag`) extended `/graphql` afterwards.
+
+### gRPC `BaggageScanner/ScanBags` (bidirectional, port 5007)
+
+Contract: [`/specs/baggagescanner.proto`](http://localhost:5000/specs/baggagescanner.proto)
+(source: `src/Hummingbird.Airlines.Middleware/Protos/baggagescanner.proto`). The client streams
+`ScanRequest {scan_id, tag_number, zone}` frames; the server answers with one `ScanAck` per bag
+and closes the session with a single `ScanSummary` once the client half-closes its stream.
+Every session is independent (no cross-session state). Dispositions are evaluated in a fixed
+order, so a tag always produces the same result (the rules are shared with the GraphQL
+`scanBag` mutation via `Storage/BagScanRules`):
+
+| Disposition | Trigger |
+|---|---|
+| `LIMIT_EXCEEDED` | accepted count already 8 |
+| `MALFORMED` | tag fails `^[A-Z]{2}[0-9]{6}$` (case-insensitive) |
+| `UNKNOWN_ZONE` | zone outside MU1 / MU2 / MU3 (reply carries the input; empty zone = MU1) |
+| `DUPLICATE` | tag already accepted in this session (case-insensitive) |
+| `ACCEPTED` | routed to belt 1..5 by FNV-1a hash of the tag |
+
+Rejections always carry `belt = 0`. The summary reports totals plus a `by_disposition` map.
+Try it with the probe (a deterministic demo that exercises every disposition):
+
+```powershell
+dotnet run --project tools/GrpcProbe -- scan            # 14-scan demo session
+dotnet run --project tools/GrpcProbe -- scan AB123456 CD765432@MU2
+```
+
+### GraphQL (`/graphql`, HotChocolate)
+
+```graphql
+query  { bagClaimBoard(speed: 60) { boardTimeUtc belts { number idle flightNumber } arrivals { ... } } }
+query  { bagClaimArrival(flightNumber: "LH862", speed: 60) { ... } }
+query  { bagClaimBelt(number: 3, speed: 60) { ... } }
+subscription { bagClaimEvents(speed: 60, sinceSeq: 0) { sequence occurredAtUtc kind flightNumber belt state } }
+```
+
+* `bagClaimArrival` for an unknown/off-board flight returns GraphQL error code
+  `ARRIVAL_NOT_FOUND` (same identity as the REST 404 and the gRPC `NotFound`).
+* `bagClaimEvents` is a custom stream (clock-derived, per-subscriber `speed` and `sinceSeq`
+  resume point) - the same sequence ids as SSE and `WatchBoard`.
+* The IDE is served on GET of the same `/graphql` URL; subscriptions use the
+  `graphql-transport-ws` sub-protocol there.
+* Enums are serialized with HotChocolate's default UPPER_SNAKE convention
+  (`FLIGHT_ARRIVED`, `LAST_BAG`, airline `AF`) - the SDL at
+  `/graphql/schema.graphql` always matches the wire. The REST/SSE JSON contract uses lowercase
+  camel values (`flightArrived`), so compare per transport.
+
+#### GraphQL mutations (departure-side: `checkIn`, `dropBag`, `scanBag`)
+
+```graphql
+mutation { checkIn(input: { bookingRef: "T00005", bags: [ { kind: CHECKED, weightKg: 28 } ] })
+           { bookingRef seat gate boardingSequence bags { tagId kind weightKg } warnings { code } } }
+mutation { dropBag(input: { bookingRef: "GZT001", bag: { kind: CARRY_ON, weightKg: 8, hasLaptop: true } })
+           { bookingRef bags { tagId kind } warnings { code } } }
+mutation { scanBag(input: { sessionId: "cart-42", scanId: "1", tagNumber: "AB123456" })
+           { scanId disposition belt acceptedCount rejectedCount } }
+mutation { resetScanSession(sessionId: "cart-42") { sessionId removed } }
+```
+
+* `checkIn`/`dropBag` travel through the same `SoapGateway` loopback round-trips as
+  `POST /api/v1/bookings/*`, so verdicts and codes stay identical:
+  `BOOKING_NOT_FOUND`, `CHECKIN_CLOSED`, `CHECKIN_REQUIRED`, `ALREADY_CHECKED_IN`,
+  `BAGGAGE_TYPE_LIMIT`, `FLIGHT_DEPARTED`, `INVALID_REQUEST` (weight out of 0..100),
+  plus `LEGACY_TIMEOUT` / `LEGACY_UNAVAILABLE` when the `X-HB-Simulate` chaos header
+  is set. Errors surface as `errors[].extensions.code` (RFC-style titles are REST only).
+* `BagInput` is flat like the REST bag body: `kind` (CHECKED/CARRY_ON) plus the kind-specific
+  fields (`lengthCm..fragile` for checked, `hasLaptop`/`fitsUnderSeat` for carry-on).
+  In-allowance overweight keeps the bag and is reported inside `warnings`
+  (`CHECKED_BAGGAGE_OVERWEIGHT`), exactly like REST 201 responses.
+* `scanBag` evaluates the SAME rule engine as the gRPC `ScanBags` stream (shared
+  `BagScanRules`): dispositions are data, never errors; `belt` is 0 when rejected and the
+  FNV-1a make-up belt 1..5 when accepted. Sessions are explicit (`sessionId`), GraphQL-side
+  only, expire after 30 minutes of inactivity and are bounded (oldest evicted);
+  `resetScanSession` clears one session idempotently (`removed=false` for unknown ids).
+
+### Gate turnaround feed (`/api/v2/gates` + WebSocket)
+
+Departure-side counterpart of the board: **gates 1..8 of the Terminal 2E pier**, one Hummingbird
+turnaround per gate every 16 feed-minutes, staggered by 2 feed-minutes across gates. Flight
+numbers are simulated rotations (`HB900..HB907`) that are guaranteed unique among simultaneously
+occupied gates. Facts about the virtual clock: everything is a pure function of the clock again.
+
+| Endpoint | Contract |
+|---|---|
+| `GET /api/v2/gates?speed=60` | `TurnaroundSnapshot` (`feedId` CDG-T2E-GATES, gates[]) |
+| `WS /api/v2/gates/ws` | client frames: `{"type":"subscribe","speed":60,"sinceSeq":0}`, `{"type":"unsubscribe"}`, `{"type":"ping"}` |
+
+Server frames: `snapshot` right after subscribe, then `gateEvent` per transition with kinds
+`gateOccupied`, `boardingOpened`, `finalCall`, `pushbackStarted`, `gateReleased`,
+`turnaroundComplete`; keepalive `ping` after ~15 s of write silence; `pong` in reply to client
+pings; `error` envelopes (`MALFORMED_JSON` / `OVERSIZE_FRAME` / `UNRECOGNIZED_TYPE`) that leave
+the socket open. Sequence ids are feed-time milliseconds and resume via `sinceSeq` exactly like
+the SSE `Last-Event-ID`.
+
+```powershell
+# quick look at the frames (any WebSocket client works)
+wscat -c ws://localhost:5000/api/v2/gates/ws
+> {"type":"subscribe","speed":60}
+```
+
+### Specifications for importers
+
+Every contract is served as a document so tools (Aethrix Studio import wizard, SoapUI, protoc,
+graphql-codegen, Postman...) can build object models directly from the running service:
+
+| URL | Format | Contents |
+|---|---|---|
+| `/specs/asyncapi.yaml` | AsyncAPI 3.0.3, self-contained | both live streams: SSE baggage claim + WS gate feed (payload JSON schemas, resumability rules) |
+| `/specs/baggageclaim.proto` | Protobuf 3 | `BaggageClaim` service (unary + server streaming) |
+| `/specs/baggagescanner.proto` | Protobuf 3 | `BaggageScanner` bidi service |
+| `/graphql/schema.graphql` | GraphQL SDL | queries + subscriptions
+| `/swagger/v1/swagger.json` | OpenAPI 3 | REST gateway surface |
+| `/soap/{booking,flights,luggage}?wsdl` | WSDL 1.1 | legacy SOAP systems |
 
 ## Abuse protection
 

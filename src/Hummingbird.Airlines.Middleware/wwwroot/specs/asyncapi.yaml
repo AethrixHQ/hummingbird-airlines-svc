@@ -1,0 +1,559 @@
+# Hummingbird Airlines - live event feeds (AsyncAPI 3.0)
+#
+# Self-contained document (no external $ref) so importers can load it from this URL directly:
+#   http://localhost:5000/specs/asyncapi.yaml          (this file)
+#
+# Companion specs served by the same gateway:
+#   http://localhost:5000/specs/baggageclaim.proto     gRPC baggage claim contract
+#   http://localhost:5000/specs/baggagescanner.proto   gRPC scanner contract
+#   http://localhost:5000/graphql/schema.graphql       GraphQL SDL (queries + subscriptions)
+#   http://localhost:5000/swagger/v1/swagger.json      REST gateway (OpenAPI)
+#   http://localhost:5000/soap/{booking,flights,luggage}?wsdl   legacy SOAP 1.1
+#
+# Both streams are driven by one deterministic virtual clock ("board time"): board time =
+# process start + real elapsed time x speed. `speed` therefore also controls the event rate
+# (speed 60 = transitions every ~6 wall seconds). Event sequence ids are board-time
+# milliseconds and must be replayed against the same speed they were produced with.
+
+asyncapi: 3.0.3
+id: 'urn:hummingbird:airlines:live-feeds'
+
+info:
+  title: Hummingbird Airlines Live Feeds
+  version: 2.1.0
+  summary: Baggage claim board (SSE) and gate turnaround (WebSocket) event streams
+  description: |
+    Simulated CDG Terminal 2E operations feeds used as protocol testbeds.
+
+    **channels coverage**
+    - `baggageClaimStream` - HTTP Server-Sent Events stream of the arrivals hall baggage
+      claim board (belts 1..5, one partner-carrier arrival every 6 board-minutes).
+    - `gateTurnaroundStream` - interactive WebSocket of the departure-side gate turnaround
+      feed (gates 1..8, one Hummingbird rotation per gate every 16 feed-minutes).
+
+    **message model** - every wire message is a JSON object with a `type` discriminator
+    (`snapshot`, `gateEvent`, `error`, `ping`/`pong`, `subscribe`/`unsubscribe`) so clients
+    can dispatch on a single field; the payload schemas below describe the full envelopes.
+
+    **resumability** - both streams number events in board-time milliseconds. Send the last
+    seen sequence to resume (SSE `Last-Event-ID` header or `lastEventId` query, WS
+    `subscribe.sinceSeq`); the gap is replayed before live events continue. Bounds are
+    clamped to the clock origin, so invented ids cannot rewind the feed. Replay history is
+    only meaningful when reconnecting with the same `speed`.
+
+    **not covered here** - gRPC endpoints (baggage claim unary/streaming + bidirectional
+    bag scanner) are imported from the .proto contracts listed above; REST request/reply
+    resources are documented in the OpenAPI swagger document.
+
+servers:
+  public:
+    host: localhost:5000
+    protocol: http
+    description: Public HTTP/1.1 gateway (REST + SSE; SOAP loopback and gRPC HTTP/2 live on dedicated listeners).
+  public-ws:
+    host: localhost:5000
+    protocol: ws
+    description: WebSocket entry point for the gate turnaround feed (same port as HTTP).
+
+defaultContentType: application/json
+
+channels:
+  baggageClaimStream:
+    address: /api/v2/baggage-claim/stream
+    title: Baggage claim board stream (SSE)
+    description: |
+      Continuous stream of baggage claim board changes over Server-Sent Events. The very
+      first frame is a `snapshot` (belt and arrival views), then `BaggageClaimEvent`
+      messages flow whenever the board advances. Comment frames (`: keepalive`) arrive
+      roughly every 15 seconds to keep proxies from idling the connection. The SSE `id`
+      equals the event `sequence`; on reconnect the `Last-Event-ID` header resumes the
+      stream from that point (with a bounded backlog replay).
+
+      `speed` applies compression to the virtual clock: 1 = real time, 60 = a full arrival
+      cycle every ~6 wall seconds. Changing the speed on reconnect fast-forwards the clock;
+      it never rewinds.
+    messages:
+      snapshot:
+        $ref: '#/components/messages/BagClaimSnapshotMessage'
+      event:
+        $ref: '#/components/messages/BagClaimEventMessage'
+
+  gateTurnaroundStream:
+    address: /api/v2/gates/ws
+    title: Gate turnaround feed (WebSocket)
+    description: |
+      Interactive WebSocket: the client subscribes with `{"type":"subscribe","speed":60}`
+      and immediately receives a `snapshot`, followed by `gateEvent` messages for every
+      turnaround transition (parking, boarding open, final call, push-back, gate release,
+      completion). One gate runs one rotation per 16 feed-minutes; eight gates are
+      staggered by 2 feed-minutes, so about half of them are busy at any time.
+
+      The server sends `{"type":"ping"}` after ~15 s of write silence. Client commands other
+      than subscribe/unsubscribe/ping, or unparseable frames, are answered with an `error`
+      message (connection stays open). Closing uses the standard WebSocket close handshake.
+    messages:
+      subscribe:
+        $ref: '#/components/messages/GateSubscribeMessage'
+      unsubscribe:
+        $ref: '#/components/messages/GateUnsubscribeMessage'
+      ping:
+        $ref: '#/components/messages/GatePingMessage'
+      snapshot:
+        $ref: '#/components/messages/GateSnapshotMessage'
+      gateEvent:
+        $ref: '#/components/messages/GateEventMessage'
+      pong:
+        $ref: '#/components/messages/GatePongMessage'
+      error:
+        $ref: '#/components/messages/GateErrorMessage'
+      keepalivePing:
+        $ref: '#/components/messages/GateKeepaliveMessage'
+
+operations:
+  openBaggageClaimStream:
+    action: receive
+    channel:
+      $ref: '#/channels/baggageClaimStream'
+    summary: Client opens the SSE stream (HTTP GET)
+    description: |
+      Long-lived HTTP GET; the response is `text/event-stream`. `speed` selects the clock
+      compression (default 1). `lastEventId` resumes from the given sequence (same
+      semantics as the `Last-Event-ID` header, which takes precedence when present).
+    bindings:
+      http:
+        type: request
+        method: GET
+        query:
+          type: object
+          additionalProperties: false
+          properties:
+            speed:
+              type: number
+              default: 1
+              minimum: 1
+              maximum: 60
+              description: Clock compression factor of the virtual board time.
+            lastEventId:
+              type: integer
+              default: 0
+              description: Sequence (board-time ms) to resume from; 0 = fresh snapshot start.
+
+  deliverBaggageClaimEvents:
+    action: send
+    channel:
+      $ref: '#/channels/baggageClaimStream'
+    summary: Server pushes board snapshots and change events
+    description: |
+      One `snapshot` right after connect, then one message per board transition. Events are
+      ordered by `sequence` (ascending board-time milliseconds, unique per event).
+    messages:
+      - $ref: '#/channels/baggageClaimStream/messages/snapshot'
+      - $ref: '#/channels/baggageClaimStream/messages/event'
+
+  subscribeGateTurnaround:
+    action: receive
+    channel:
+      $ref: '#/channels/gateTurnaroundStream'
+    summary: Client commands (subscribe / unsubscribe / ping)
+    messages:
+      - $ref: '#/channels/gateTurnaroundStream/messages/subscribe'
+      - $ref: '#/channels/gateTurnaroundStream/messages/unsubscribe'
+      - $ref: '#/channels/gateTurnaroundStream/messages/ping'
+
+  deliverGateTurnaround:
+    action: send
+    channel:
+      $ref: '#/channels/gateTurnaroundStream'
+    summary: Server pushes snapshot, lifecycle events, keepalives and errors
+    messages:
+      - $ref: '#/channels/gateTurnaroundStream/messages/snapshot'
+      - $ref: '#/channels/gateTurnaroundStream/messages/gateEvent'
+      - $ref: '#/channels/gateTurnaroundStream/messages/pong'
+      - $ref: '#/channels/gateTurnaroundStream/messages/keepalivePing'
+      - $ref: '#/channels/gateTurnaroundStream/messages/error'
+
+components:
+  messages:
+    BagClaimSnapshotMessage:
+      title: Board snapshot
+      summary: Full belt and arrival views; `event: snapshot` frames are sent when the stream opens and re-sent roughly every 20 s as a resync (id = board-time ms of the refresh).
+      payload:
+        $ref: '#/components/schemas/BagClaimSnapshot'
+
+    BagClaimEventMessage:
+      title: Board change event
+      summary: One transition of one arrival flight. SSE framing uses the kind as event name (`event: flightArrived` etc.) and the sequence as id; the data payload is the object below.
+      payload:
+        $ref: '#/components/schemas/BagClaimEvent'
+
+    GateSubscribeMessage:
+      title: Subscribe command
+      summary: Client starts (or restarts) the gate event stream.
+      payload:
+        $ref: '#/components/schemas/GateSubscribeEnvelope'
+
+    GateUnsubscribeMessage:
+      title: Unsubscribe command
+      summary: Client stops the event stream but keeps the socket open.
+      payload:
+        type: object
+        additionalProperties: false
+        required: [type]
+        properties:
+          type:
+            type: string
+            const: unsubscribe
+
+    GatePingMessage:
+      title: Ping command
+      summary: Client liveness probe; the server answers with `pong`.
+      payload:
+        type: object
+        additionalProperties: false
+        required: [type]
+        properties:
+          type:
+            type: string
+            const: ping
+
+    GatePongMessage:
+      title: Pong reply
+      summary: Answer to a client ping.
+      payload:
+        type: object
+        additionalProperties: false
+        required: [type]
+        properties:
+          type:
+            type: string
+            const: pong
+
+    GateKeepaliveMessage:
+      title: Server keepalive ping
+      summary: Emitted after ~15 s of write silence; no answer expected.
+      payload:
+        type: object
+        additionalProperties: false
+        required: [type]
+        properties:
+          type:
+            type: string
+            const: ping
+
+    GateErrorMessage:
+      title: Protocol error
+      summary: Inbound command rejected; the connection stays open.
+      payload:
+        $ref: '#/components/schemas/GateErrorEnvelope'
+
+    GateSnapshotMessage:
+      title: Gate snapshot
+      summary: Full gate board, sent right after a subscribe.
+      payload:
+        $ref: '#/components/schemas/GateSnapshot'
+
+    GateEventMessage:
+      title: Gate turnaround event
+      summary: One transition of one gate rotation (sequence = feed-time ms).
+      payload:
+        $ref: '#/components/schemas/GateEvent'
+
+  schemas:
+    BagClaimSnapshot:
+      type: object
+      additionalProperties: false
+      required:
+        - boardId
+        - airport
+        - generatedAtUtc
+        - boardTimeUtc
+        - speed
+        - belts
+        - arrivals
+      properties:
+        boardId:
+          type: string
+          description: Immutable board identity.
+          examples: [CDG-T2E]
+        airport:
+          $ref: '#/components/schemas/AirportRef'
+        generatedAtUtc:
+          type: string
+          format: date-time
+          description: Real wall-clock instant of generation.
+        boardTimeUtc:
+          type: string
+          format: date-time
+          description: Virtual board clock instant (equals generatedAtUtc at speed 1).
+        speed:
+          type: number
+          description: Compression factor in effect (1..60).
+          examples: [6]
+        belts:
+          type: array
+          description: The five belts ("tapis") of the hall.
+          items:
+            $ref: '#/components/schemas/BagClaimBelt'
+        arrivals:
+          type: array
+          description: Every arrival currently displayed, ordered by scheduled arrival.
+          items:
+            $ref: '#/components/schemas/BagClaimArrival'
+
+    BagClaimBelt:
+      type: object
+      additionalProperties: false
+      description: One baggage claim belt with its current occupancy.
+      required: [number, idle]
+      properties:
+        number:
+          type: integer
+          minimum: 1
+          maximum: 5
+        idle:
+          type: boolean
+          description: True when the belt is free.
+        flightNumber:
+          type: string
+          description: Flight currently unloading; null while idle.
+
+    AirportRef:
+      type: object
+      additionalProperties: false
+      description: Airport hosting the simulated board or feed.
+      required: [code, name, city]
+      properties:
+        code:
+          type: string
+          examples: [CDG]
+        name:
+          type: string
+          examples: [Paris Charles de Gaulle Airport]
+        city:
+          type: string
+          examples: [Paris]
+        country:
+          type: string
+          examples: [France]
+        terminal:
+          type: string
+          examples: [2E]
+
+    BagClaimArrival:
+      type: object
+      additionalProperties: false
+      description: An arrival flight displayed on the board.
+      required:
+        - flightNumber
+        - airline
+        - airlineName
+        - originCode
+        - originName
+        - originCity
+        - scheduledArrivalUtc
+        - belt
+        - state
+      properties:
+        flightNumber:
+          type: string
+          examples: [AF412]
+        airline:
+          type: string
+          description: IATA-style carrier code (lowercase, camel case of the enum).
+          enum: [hb, af, ba, ca, lh, ek]
+        airlineName:
+          type: string
+          examples: [Air France]
+        originCode:
+          type: string
+          examples: [JFK]
+        originName:
+          type: string
+          examples: [John F. Kennedy International]
+        originCity:
+          type: string
+          examples: [New York]
+        scheduledArrivalUtc:
+          type: string
+          format: date-time
+          description: Board-clock scheduled landing instant.
+        belt:
+          type: integer
+          minimum: 0
+          maximum: 5
+          description: Assigned belt (1..5); 0 while the flight is still inbound.
+        state:
+          $ref: '#/components/schemas/BagClaimState'
+
+    BagClaimEvent:
+      type: object
+      additionalProperties: false
+      description: A change event on the baggage claim board (sequence = SSE id = board-time ms).
+      required: [sequence, occurredAtUtc, kind, flightNumber, belt, state]
+      properties:
+        sequence:
+          type: integer
+          minimum: 0
+          description: Board-clock occurrence time in milliseconds; doubles as the SSE event id.
+        occurredAtUtc:
+          type: string
+          format: date-time
+        kind:
+          type: string
+          enum:
+            - flightInbound
+            - flightArrived
+            - unloadingStarted
+            - lastBag
+            - beltReleased
+            - flightOffBoard
+        flightNumber:
+          type: string
+          examples: [AF412]
+        belt:
+          type: integer
+          minimum: 0
+          maximum: 5
+          description: Belt involved; 0 for inbound / off-board events.
+        state:
+          $ref: '#/components/schemas/BagClaimState'
+
+    BagClaimState:
+      type: string
+      description: Operational state of an arrival on the board.
+      enum: [inbound, arrived, unloading, lastBag, released]
+
+    GateSubscribeEnvelope:
+      type: object
+      additionalProperties: false
+      description: Start or restart the gate event stream. Answers with a fresh snapshot.
+      required: [type]
+      properties:
+        type:
+          type: string
+          const: subscribe
+        speed:
+          type: number
+          default: 1
+          minimum: 1
+          maximum: 60
+          description: Clock compression factor of the virtual feed time.
+        sinceSeq:
+          type: integer
+          default: 0
+          description: >
+            Sequence (feed-time ms) to resume from; the gap is replayed before live events.
+            0 = start from the current clock.
+
+    GateErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [type, code, message]
+      properties:
+        type:
+          type: string
+          const: error
+        code:
+          type: string
+          enum: [malformed_json, oversize_frame, unrecognized_type]
+          description: |
+            - malformed_json - frame was not a JSON object with a string "type".
+            - oversize_frame - inbound frame exceeded 4096 bytes and was dropped.
+            - unrecognized_type - "type" value is not a known command.
+        message:
+          type: string
+
+    GateSnapshot:
+      type: object
+      additionalProperties: false
+      required: [type, feedId, airport, generatedAtUtc, feedTimeUtc, speed, gates]
+      properties:
+        type:
+          type: string
+          const: snapshot
+        feedId:
+          type: string
+          description: Immutable feed identity.
+          examples: [CDG-T2E-GATES]
+        airport:
+          $ref: '#/components/schemas/AirportRef'
+        generatedAtUtc:
+          type: string
+          format: date-time
+        feedTimeUtc:
+          type: string
+          format: date-time
+          description: Virtual feed clock instant (equals generatedAtUtc at speed 1).
+        speed:
+          type: number
+          description: Compression factor in effect (1..60).
+        gates:
+          type: array
+          description: The eight gates of the Terminal 2E departure pier.
+          items:
+            $ref: '#/components/schemas/GateSlot'
+
+    GateEvent:
+      type: object
+      additionalProperties: false
+      required: [type, sequence, occurredAtUtc, kind, gate, flightNumber, state, scheduledDepartureUtc]
+      properties:
+        type:
+          type: string
+          const: gateEvent
+        sequence:
+          type: integer
+          minimum: 0
+          description: Feed-clock occurrence time in milliseconds (resumable via sinceSeq).
+        occurredAtUtc:
+          type: string
+          format: date-time
+        kind:
+          type: string
+          enum:
+            - gateOccupied
+            - boardingOpened
+            - finalCall
+            - pushbackStarted
+            - gateReleased
+            - turnaroundComplete
+        gate:
+          type: integer
+          minimum: 1
+          maximum: 8
+        flightNumber:
+          type: string
+          examples: [HB903]
+        state:
+          type: string
+          description: Phase the flight carries after the transition.
+          enum: [idle, occupied, boarding, finalCall, pushback, released]
+        scheduledDepartureUtc:
+          type: string
+          format: date-time
+          description: Push-back instant this turnaround aims at (cycle start + 10 feed-min).
+
+    GateSlot:
+      type: object
+      additionalProperties: false
+      description: One gate with its current occupancy.
+      required: [number, idle, state]
+      properties:
+        number:
+          type: integer
+          minimum: 1
+          maximum: 8
+        idle:
+          type: boolean
+          description: True when no aircraft is parked (before arrival or after release).
+        flightNumber:
+          type: string
+          description: Hummingbird flight occupying the gate; null while idle.
+        state:
+          type: string
+          description: Current turnaround phase (idle when the gate is free).
+          enum: [idle, occupied, boarding, finalCall, pushback, released]
+        scheduledDepartureUtc:
+          type: string
+          format: date-time
+          description: Push-back instant; null while idle.
