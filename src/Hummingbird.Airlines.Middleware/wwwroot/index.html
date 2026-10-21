@@ -123,7 +123,7 @@
       <p class="tagline">One REST middleware in front of three simulated SOAP&nbsp;1.1 legacy systems.
          Live feeds (baggage claim board, bag scanner, gate turnaround) ride on SSE, gRPC, GraphQL
          and WebSocket; contract documents are downloadable for API importers.
-         Built for API testing (Aethrix).</p>
+         Built for API testing (Aethrix Labs).</p>
     </div>
   </header>
 
@@ -242,7 +242,7 @@
 
   <h2>Specifications &mdash; importable documents</h2>
   <p class="tagline">Every machine-readable contract of the service is a plain URL. Point the
-     Aethrix Studio import wizard (or Postman, SoapUI, protoc, graphql-codegen&hellip;) at one of
+     Aethrix Labs import wizard (or Postman, SoapUI, protoc, graphql-codegen&hellip;) at one of
      these addresses; every document is self-contained (no external references).</p>
   <table>
     <thead><tr><th>Spec</th><th>Format</th><th>Covers</th></tr></thead>
@@ -388,9 +388,9 @@ JSON out : {
 }</pre>
 
   <h2>Failure injection (chaos header)</h2>
-<pre class="code">curl -H "X-HB-Simulate: timeout=12"   https://hummingbird-airline.azurewebsites.net/api/v1/flights/HB903   # -> 504 LEGACY_TIMEOUT
-curl -H "X-HB-Simulate: fault"        https://hummingbird-airline.azurewebsites.net/api/v1/flights/HB903   # -> 502 INTERNAL_ERROR
-curl -H "X-HB-Simulate: unavailable"  https://hummingbird-airline.azurewebsites.net/api/v1/flights/HB903   # -> 502 LEGACY_UNAVAILABLE</pre>
+<pre class="code">curl -H "X-HB-Simulate: timeout=12"   http://localhost:5000/api/v1/flights/HB903   # -> 504 LEGACY_TIMEOUT
+curl -H "X-HB-Simulate: fault"        http://localhost:5000/api/v1/flights/HB903   # -> 502 INTERNAL_ERROR
+curl -H "X-HB-Simulate: unavailable"  http://localhost:5000/api/v1/flights/HB903   # -> 502 LEGACY_UNAVAILABLE</pre>
   <p class="tagline">The header also works when calling the SOAP endpoints directly, and is relayed by the middleware to the backends.</p>
 
   <h2>Reset demo data</h2>
@@ -399,7 +399,7 @@ curl -H "X-HB-Simulate: unavailable"  https://hummingbird-airline.azurewebsites.
     seeds and restarts the deterministic counters &mdash; repeat a scenario without restarting
     the system. Global operation (no sessions, no concurrency guarantees); rate limits apply.
   </p>
-<pre class="code">curl -X POST https://hummingbird-airline.azurewebsites.net/api/v1/admin/reset</pre>
+<pre class="code">curl -X POST http://localhost:5000/api/v1/admin/reset</pre>
   <p><button class="refresh" style="float:none" onclick="resetDemo()">Reset demo data now</button>
      <span id="resetResult" class="mono"></span></p>
 
@@ -424,7 +424,7 @@ curl -H "X-HB-Simulate: unavailable"  https://hummingbird-airline.azurewebsites.
       </p>
       <div class="meta">
         <span class="tm">Aethrix&reg; is a registered trademark of Huaxing YUAN (EPO).</span>
-        <span class="powered"><img src="img/aethrix-icon.svg" alt=""> powered by <strong>Aethrix</strong></span>
+        <span class="powered"><img src="img/aethrix-icon.svg" alt=""> powered by <strong>Aethrix Labs</strong></span>
       </div>
     </div>
   </footer>

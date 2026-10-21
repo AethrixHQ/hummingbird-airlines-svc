@@ -279,7 +279,7 @@ public sealed class ResetScanSessionPayload
 ///   <item><c>scanBag</c>/<c>resetScanSession</c> evaluate the shared <see cref="BagScanRules"/>
 ///     engine against a GraphQL-owned session store - protocol parity for the gRPC scanner.</item>
 /// </list>
-/// Aethrix Studio finds the root under SDL name <c>type Mutation</c>.
+/// Spec importers find the root under SDL name <c>type Mutation</c>.
 /// </summary>
 public sealed class Mutation
 {

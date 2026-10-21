@@ -330,7 +330,7 @@ try {
     Write-Host "FAIL SOAP polymorphic array: $($_.Exception.Message)" -ForegroundColor Red
 }
 
-Section "WSDL is published for Aethrix import"
+Section "WSDL is published for spec importers"
 foreach ($endpoint in @("booking", "flights", "luggage")) {
     try {
         $wsdl = Invoke-WebRequest -Uri "$BaseUrl/soap/$endpoint`?wsdl" -TimeoutSec 30

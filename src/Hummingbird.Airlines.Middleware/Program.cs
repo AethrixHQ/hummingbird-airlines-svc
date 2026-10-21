@@ -138,7 +138,7 @@ builder.Services.AddControllers()
 builder.Services.AddHttpContextAccessor();
 
 // gRPC server plumbing: the BaggageClaim service below plus server reflection so
-// tooling (grpcurl, gRPC UI, Aethrix Studio) can enumerate it without a proto copy.
+// tooling (grpcurl, gRPC UI, ...) can enumerate it without a proto copy.
 builder.Services.AddGrpc();
 builder.Services.AddGrpcReflection();
 builder.Services.AddSingleton<BaggageClaimBoard>();
@@ -184,7 +184,7 @@ builder.Services.AddSwaggerGen(options =>
     options.SchemaFilter<PolymorphicBaggageSchemaFilter>();
 
     // Feed <summary>/<example> XML comments into description/example metadata so
-    // code generators (Aethrix object tree) can surface hints to the user.
+    // code generators (spec-driven object trees) can surface hints to the user.
     var xmlFiles = new[]
     {
         $"{typeof(Program).Assembly.GetName().Name}.xml",
@@ -241,15 +241,15 @@ app.MapGrpcService<BaggageScannerGrpcService>();
 app.MapGrpcReflectionService();
 
 // GraphQL waterhole: IDE/POST endpoint at /graphql (subscriptions over WebSocket there)
-// plus a downloadable SDL for spec importers (Aethrix object model generation).
+// plus a downloadable SDL for spec importers (spec-driven object model generation).
 app.MapGraphQL("/graphql");
 app.MapGraphQLSchema("/graphql/schema.graphql");
 
 // Gate turnaround feed: REST snapshot + interactive WebSocket.
 app.MapGateFeed();
 
-// Downloadable proto contracts for spec importers (Aethrix Studio ships protoc and
-// resolves google/protobuf/* well-known types itself). The literal `.proto` suffix in the
+// Downloadable proto contracts for spec importers (most toolchains ship protoc and
+// resolve google/protobuf/* well-known types themselves). The literal `.proto` suffix in the
 // template matters: with the broader "/specs/{file}" pattern, endpoint routing would claim
 // EVERYTHING under /specs/ (routing runs first and precedence-beats the static files
 // middleware), and the AsyncAPI YAML next to the protos would 404.

@@ -13,7 +13,7 @@ namespace Hummingbird.Airlines.Middleware.Graph;
 /// mutations that reuse the legacy luggage paths and the shared scanner rule engine
 /// (see <see cref="Mutation"/> in BagClaimMutations.cs).
 /// The root types are deliberately named Query/Mutation/Subscription (standard GraphQL names) so
-/// that spec importers (Aethrix Studio) find a discoverable schema root from the SDL.
+/// that spec importers find a discoverable schema root from the SDL.
 ///
 /// SDL for importers: GET /graphql/schema.graphql
 /// </summary>

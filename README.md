@@ -2,7 +2,7 @@
 
 ![Hummingbird Airlines](Hummingbird-Airlines.png)
 
-An **API testing playground** built for [Aethrix](https://hummingbird-alm.com): one ASP.NET Core
+A **self-contained API testbed** for learning and practicing API testing: one ASP.NET Core
 web app (net10.0) hosting a REST middleware plus three simulated SOAP 1.1 "legacy enterprise"
 backends. Designed so test scenarios can deliberately trigger every failure mode: hard faults,
 soft warnings, timeouts, unavailable backends and capacity eviction.
@@ -10,7 +10,7 @@ soft warnings, timeouts, unavailable backends and capacity eviction.
 ## Architecture
 
 ```
-Test client (Aethrix)
+Test client (any API tooling)
   | REST/JSON + OpenAPI                    | raw SOAP 1.1 + WSDL
   v                                        v
 +--------------------------------------------------------------------------+
@@ -48,9 +48,7 @@ dotnet run --project src/Hummingbird.Airlines.Middleware
 
 ## Deployment
 
-Live instance: **https://hummingbird-airline.azurewebsites.net**
-
-Deploy to your own Azure App Service (Linux, .NET 10) with the included tooling:
+Minimal and self-hostable: deploy to **your own** Azure App Service (Linux, .NET 10) with the included tooling:
 
 ```powershell
 ./tools/deploy-azure.ps1 -ResourceGroup <your-rg> -WebAppName <your-app>
@@ -64,7 +62,7 @@ Notes:
   `ASPNETCORE_HTTP_PORTS=8080` app setting (locally it falls back to 5000).
 * The gRPC listener (port 5007 by default) binds in-process. The public HTTPS front end
   does not proxy it by default - expose gRPC over HTTPS by App Service's HTTP/2 gRPC
-  support (or An Azure Front Door) if you need it remotely; the SSE/REST streaming
+  support (or an Azure Front Door) if you need it remotely; the SSE/REST streaming
   surface (port 8080) works out of the box.
 
 ## Endpoints
@@ -97,7 +95,7 @@ Notes:
 
 REST is documented through **Swagger** (`/swagger`, machine-readable at
 `/swagger/v1/swagger.json`); every SOAP endpoint publishes its **WSDL** at `?wsdl`
-(importable by Aethrix / SoapUI / Postman). Both are linked from the default page.
+(importable by SoapUI / Postman / any spec-aware client). Both are linked from the default page.
 
 ### Default page
 
@@ -126,7 +124,7 @@ drills are bypassed so reset always succeeds, and abuse rate limits still apply.
 
 ## Baggage claim board (streaming + gRPC)
 
-A second, protocol-rich domain for Aethrix: the **arrivals board of CDG Terminal 2E** -
+A second, protocol-rich domain for the testbed: the **arrivals board of CDG Terminal 2E** -
 five baggage claim belts ("tapis" 1..5) fed by partner arrivals (Hummingbird, Air France,
 British Airways, Air China, Lufthansa, Emirates). One arrival lands every six *board*-minutes;
 each flight runs the lifecycle
@@ -172,8 +170,8 @@ SSE framing:
 
 * Kestrel uses a **dedicated cleartext HTTP/2 listener** (plain HTTP/1.1 ports cannot
   negotiate h2c); clients connect with prior knowledge: `GrpcChannel.ForAddress("http://localhost:5007")`.
-* **Server reflection is enabled**, so grpcurl / gRPC UI / Aethrix can discover the service:
-  `grpcurl -plaintext localhost:5007 list`.
+* **Server reflection is enabled**, so grpcurl / gRPC UI / any reflection-aware client can discover the
+  service: `grpcurl -plaintext localhost:5007 list`.
 * `WatchBoardRequest.last_event_sequence` replays missed events (same semantics as the SSE id);
   sequence numbers live on the board clock, so resume with the same `speed` the events were
   produced with.
@@ -303,8 +301,8 @@ wscat -c ws://localhost:5000/api/v2/gates/ws
 
 ### Specifications for importers
 
-Every contract is served as a document so tools (Aethrix Studio import wizard, SoapUI, protoc,
-graphql-codegen, Postman...) can build object models directly from the running service:
+Every contract is served as a document so tools (SoapUI, protoc, graphql-codegen, Postman...)
+can build object models directly from the running service:
 
 | URL | Format | Contents |
 |---|---|---|
@@ -317,8 +315,8 @@ graphql-codegen, Postman...) can build object models directly from the running s
 
 ## Abuse protection
 
-All four endpoints sit behind the same protection pipeline so nobody can use this public
-test service for bulk attacks or load testing. Configured under `Protection` in
+All four endpoints sit behind the same protection pipeline so nobody can use a deployed
+instance for bulk attacks or load testing. Configured under `Protection` in
 `appsettings.json`:
 
 | Scope | Default limit | Rejection |
@@ -339,7 +337,7 @@ test service for bulk attacks or load testing. Configured under `Protection` in
 * Client address comes from `X-Forwarded-For` because Azure App Service front ends proxy to
   localhost. The proxy chain is trusted unconditionally (unknown cloud networks), so per-IP
   keys can be spoofed - the server-wide ceiling and concurrency caps still bound total load.
-  Honest trade-off for a free-tier test target.
+  Honest trade-off for a free-tier hosting target.
 
 ## Business rules (validated in the BACKENDS only)
 
@@ -387,7 +385,7 @@ test service for bulk attacks or load testing. Configured under `Protection` in
    `{"type":"checked","weightKg":23}` or `{"type":"carryOn","weightKg":8}` - implemented with
    `System.Text.Json` polymorphism on the REST side and `[KnownType]`/`xsi:type` on the SOAP
    side. The REST reader is tolerant: it also accepts the Newtonsoft-style
-   `"$type":"...CheckedBaggage, ..."` discriminator emitted by generated clients (e.g. Aethrix).
+   `"$type":"...CheckedBaggage, ..."` discriminator emitted by generated clients.
    OpenAPI exposes the union as `oneOf` plus a `discriminator { propertyName: "type" }`.
 
 ### Failure injection (chaos header)
@@ -450,7 +448,7 @@ The only values that move are dates and derived statuses - by design.
 ## OpenAPI metadata for code generators
 
 Both projects emit XML documentation files that Swashbuckle folds into the OpenAPI
-document, so generated clients and Aethrix object trees carry descriptions and examples:
+document, so generated clients carry descriptions and examples:
 
 * every controller action documents summary, parameters (`<param>`) and per-status
   responses (`<response>` with the backend fault code),
@@ -486,12 +484,10 @@ curl -X POST http://localhost:5000/soap/luggage -H "SOAPAction: \"http://humming
 
 * **License** - released under the [MIT License](LICENSE).
   Copyright &copy; 2018&ndash;2026 Huaxing YUAN (first commit: 2018-06-11).
-* **Trademark** - *Aethrix*&reg; and the Aethrix logo are registered trademarks of
-  **Huaxing YUAN** (individual registration, European Patent Office).
-* **Intended use** - this public test server exists solely for understanding, learning,
-  practice and API testing (e.g. with Aethrix).
+* **Intended use** - this project is a testbed and training ground for API testing:
+  understanding, learning and practice.
 * **No abuse** - large-scale load generation, attack traffic, scraping at volume or any
-  illegal use of the live endpoints is prohibited. Rate limiting is enforced per IP and
+  illegal use of any deployed instance is prohibited. Rate limiting is enforced per IP and
   the operator reserves the right to block offenders without notice.
 * **No warranty** - the service is provided "as is" (see MIT license); data is in-memory
   and may be reset or become unavailable at any time.
