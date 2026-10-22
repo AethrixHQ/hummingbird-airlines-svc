@@ -4,7 +4,8 @@
 #   * gRPC unary + server streaming on the dedicated HTTP/2 port (via tools/GrpcProbe)
 #   * gRPC bidirectional bag scanner (disposition matrix + half-close summary)
 #   * REST gate turnaround snapshot + interactive WebSocket protocol
-#   * GraphQL query + error code + graphql-transport-ws subscription
+#   * GraphQL query + error code + mutations + graphql-transport-ws subscription + the
+#     v2 sibling schema with oneOf bag variants (/graphql/v2)
 #   * spec endpoints for importers (/specs/asyncapi.yaml, /specs/*.proto, /graphql/schema.graphql)
 # Usage: ./tools/smoke-streaming.ps1 [-BaseUrl http://localhost:5000] [-GrpcPort 5007] [-GrpcProbeUrl http://localhost:5007]
 # The board is clock-derived, so no reset is required; runs are independent.
@@ -337,6 +338,68 @@ try {
     else { Fail "session reset missing" ($gql | ConvertTo-Json -Depth 4) }
 }
 catch { Fail "GraphQL mutations threw" $_.Exception.Message }
+
+# ---------------------------------------------------------------------------
+Section "GraphQL v2 sibling schema (oneOf bag variants on /graphql/v2)"
+try {
+    $sdlV2 = Invoke-WebRequest "$BaseUrl/graphql/v2/schema.graphql" -TimeoutSec 20
+    $v2Sdl = if ($sdlV2.Content -is [byte[]]) { [Text.Encoding]::UTF8.GetString($sdlV2.Content) } else { [string]$sdlV2.Content }
+    if (($sdlV2.StatusCode -eq 200) -and ($v2Sdl -match '(?m)input BagInput') -and ($v2Sdl -match '@oneOf') `
+        -and ($v2Sdl -match '(?m)input CheckedBagInput') -and ($v2Sdl -match '(?m)input CarryOnBagInput')) {
+        Pass "v2 SDL: input BagInput @oneOf + CheckedBagInput/CarryOnBagInput"
+    }
+    else { Fail "v2 SDL oneOf shape missing" ($v2Sdl -split "`n" | Select-Object -First 1) }
+
+    $sdlV1 = Invoke-WebRequest "$BaseUrl/graphql/schema.graphql" -TimeoutSec 20
+    $v1Sdl = if ($sdlV1.Content -is [byte[]]) { [Text.Encoding]::UTF8.GetString($sdlV1.Content) } else { [string]$sdlV1.Content }
+    if (($sdlV1.StatusCode -eq 200) -and ($v1Sdl -notmatch 'oneOf') -and ($v1Sdl -match '(?m)input BagInput')) {
+        Pass "v1 SDL stays flat (no oneOf directive)"
+    }
+    else { Fail "v1 SDL changed unexpectedly" ($v1Sdl -split "`n" | Select-Object -First 1) }
+
+    # v2 checkIn with exactly-one-of variants (fresh booking) -> same legacy verdict as v1
+    $flights = Invoke-RestMethod "$BaseUrl/api/v1/flights" -TimeoutSec 15
+    $flight = ($flights | Where-Object { $_.status -eq 'scheduled' -and -not $_.isCancelled } |
+        Sort-Object scheduledDepartureUtc | Select-Object -First 1)
+    $nr = $flight.flightNumber
+    $createBody = @{
+        flight     = @{ carrier = $nr.Substring(0, 2).ToLower(); number = [int]$nr.Substring(2) }
+        cabinClass = 'economy'
+        passenger  = @{ firstName = 'Smoke'; lastName = 'OneOf'; passport = 'GQLONEOF1' }
+    } | ConvertTo-Json -Depth 5 -Compress
+    $created = Invoke-RestMethod "$BaseUrl/api/v1/bookings" -Method Post -ContentType 'application/json' -Body $createBody -TimeoutSec 15
+    $refV2 = $created.bookingRef
+
+    $payload = '{"query":"mutation { checkIn(input: { bookingRef: \"' + $refV2 + '\", bags: [ { checked: { weightKg: 28, color: \"teal\" } }, { carryOn: { weightKg: 6, hasLaptop: true } } ] }) { bookingRef seat bags { kind weightKg hasLaptop } warnings { code } } }"}'
+    $gql = Invoke-RestMethod "$BaseUrl/graphql/v2" -Method Post -Body $payload -ContentType 'application/json' -TimeoutSec 30
+    $ci = $gql.data.checkIn
+    if ($null -ne $ci -and $ci.bookingRef -eq $refV2 -and $ci.bags.Count -eq 2 `
+        -and $ci.bags[0].kind -eq 'CHECKED' -and $ci.bags[1].kind -eq 'CARRY_ON' `
+        -and (($ci.warnings | Where-Object { $_.code -eq 'CHECKED_BAGGAGE_OVERWEIGHT' }).Count -eq 1)) {
+        Pass "v2 checkIn (checked + carryOn variants) -> same payload and warning"
+    }
+    else { Fail "v2 checkIn parity missing" ($gql | ConvertTo-Json -Depth 4) }
+
+    # both variants on one bag -> GraphQL-level oneOf coercion error (no data)
+    $payload = '{"query":"mutation { checkIn(input: { bookingRef: \"' + $refV2 + '\", bags: [ { checked: { weightKg: 10 }, carryOn: { weightKg: 5 } } ] }) { bookingRef } }"}'
+    $both = $false
+    try {
+        $gql = Invoke-RestMethod "$BaseUrl/graphql/v2" -Method Post -Body $payload -ContentType 'application/json' -TimeoutSec 20
+        $both = ($null -eq $gql.data.checkIn) -and ($gql.errors.Count -gt 0)
+    }
+    catch { $both = ($_.ErrorDetails.Message -match 'exactly one field must be supplied') }
+    if ($both) { Pass "both variants -> oneOf coercion error" }
+    else { Fail "oneOf coercion error missing" ($gql | ConvertTo-Json -Depth 4) }
+
+    # non-polymorphic operations keep their flat input shape on v2 too
+    $payload = '{"query":"mutation { scanBag(input: { sessionId: \"smoke-gql-v2\", scanId: \"S2V\", tagNumber: \"AB123456\", zone: \"MU2\" }) { disposition belt } }"}'
+    $gql = Invoke-RestMethod "$BaseUrl/graphql/v2" -Method Post -Body $payload -ContentType 'application/json' -TimeoutSec 20
+    if ($gql.data.scanBag.disposition -eq 'ACCEPTED' -and ($gql.data.scanBag.belt -in 1..5)) {
+        Pass "v2 scanBag unchanged (flat input, ACCEPTED)"
+    }
+    else { Fail "v2 scanBag missing" ($gql | ConvertTo-Json -Depth 4) }
+}
+catch { Fail "GraphQL v2 threw" $_.Exception.Message }
 
 # ---------------------------------------------------------------------------
 Section "GraphQL subscription over WebSocket (graphql-transport-ws, speed 60)"

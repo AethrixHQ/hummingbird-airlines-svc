@@ -222,8 +222,10 @@
          <code>bagClaimEvents(speed, sinceSeq)</code>, and the mutations listed in the
          GraphQL operations table below.</p>
       <ul>
-        <li><a href="/graphql">/graphql</a> (IDE and POST endpoint)</li>
-        <li><a href="/graphql/schema.graphql">/graphql/schema.graphql</a> (SDL)</li>
+        <li><a href="/graphql">/graphql</a> (IDE and POST endpoint) &mdash; v1: flat bag input</li>
+        <li><a href="/graphql/schema.graphql">/graphql/schema.graphql</a> (v1 SDL)</li>
+        <li><a href="/graphql/v2">/graphql/v2</a> (v2: same surface, bag inputs are oneOf variants)</li>
+        <li><a href="/graphql/v2/schema.graphql">/graphql/v2/schema.graphql</a> (v2 SDL)</li>
         <li>Subscriptions over graphql-transport-ws on the same URL</li>
       </ul>
     </div>
@@ -265,7 +267,12 @@
       <tr>
         <td><a href="/graphql/schema.graphql">/graphql/schema.graphql</a></td>
         <td class="mono">GraphQL SDL</td>
-        <td>Queries, mutations and subscriptions over the baggage claim board</td>
+        <td>Queries, mutations and subscriptions over the baggage claim board (v1: flat bag input)</td>
+      </tr>
+      <tr>
+        <td><a href="/graphql/v2/schema.graphql">/graphql/v2/schema.graphql</a></td>
+        <td class="mono">GraphQL SDL</td>
+        <td>Same surface as v1; bag inputs use the oneOf pattern (exactly one of CheckedBagInput / CarryOnBagInput)</td>
       </tr>
       <tr>
         <td><a href="/swagger/v1/swagger.json">/swagger/v1/swagger.json</a></td>
@@ -282,13 +289,14 @@
     </tbody>
   </table>
 
-  <h2>GraphQL operations &mdash; POST <a href="/graphql">/graphql</a></h2>
+  <h2>GraphQL operations &mdash; v1: POST <a href="/graphql">/graphql</a> &middot; v2: <a href="/graphql/v2">/graphql/v2</a></h2>
   <p class="tagline">Roots: <code>Query</code>, <code>Mutation</code>, <code>Subscription</code>.
      The subscription runs on the same URL over the graphql-transport-ws protocol.
      checkIn / dropBag travel through the same legacy luggage path as
      <code>POST /api/v1/bookings/*</code>, so error codes are identical across transports.
      scanBag sessions are scoped by the sessionId argument and expire after 30 minutes
-     of inactivity.</p>
+     of inactivity. The table lists v1 (flat bag input); v2 serves the same operations
+     with bags declared as oneOf variants (<code>checked</code> / <code>carryOn</code>).</p>
   <table>
     <thead><tr><th>Method / address</th><th>Operation</th><th>Arguments</th><th>Returns &middot; error codes (extensions.code)</th></tr></thead>
     <tbody>

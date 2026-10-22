@@ -88,7 +88,9 @@ Notes:
 | `/api/v2/gates` | REST | gate turnaround board of Terminal 2E departures (`?speed=` 1..60) |
 | `/api/v2/gates/ws` | WebSocket | interactive gate feed: `subscribe` / `gateEvent` / ping-pong / error frames (see below) |
 | `/graphql` | GraphQL | baggage claim queries + mutations + subscriptions (graphiql IDE on GET, subscriptions over websocket) |
+| `/graphql/v2` | GraphQL (v2) | same surface; bag inputs use the oneOf pattern (`checked`/`carryOn` variants) |
 | `/graphql/schema.graphql` | GraphQL SDL | schema for importers / code generators |
+| `/graphql/v2/schema.graphql` | GraphQL SDL (v2) | oneOf variant schema for importers / code generators |
 | `/specs/asyncapi.yaml` | AsyncAPI 3.0 | SSE baggage claim stream + gate WebSocket message models |
 | `/specs/baggageclaim.proto` | Protobuf | served copy of the BaggageClaim gRPC contract |
 | `/specs/baggagescanner.proto` | Protobuf | served copy of the BaggageScanner gRPC contract (bidirectional) |
@@ -273,6 +275,22 @@ mutation { resetScanSession(sessionId: "cart-42") { sessionId removed } }
   FNV-1a make-up belt 1..5 when accepted. Sessions are explicit (`sessionId`), GraphQL-side
   only, expire after 30 minutes of inactivity and are bounded (oldest evicted);
   `resetScanSession` clears one session idempotently (`removed=false` for unknown ids).
+
+#### GraphQL v2 sibling schema (oneOf bag inputs)
+
+`/graphql/v2` serves the same roots, payloads and verdicts, but bag polymorphism follows the
+oneOf input-object pattern instead of the flat REST shape: `BagInput` is `@oneOf` with
+`checked: CheckedBagInput` / `carryOn: CarryOnBagInput` (exactly one variant per bag;
+supplying none or both is a GraphQL error, not a silent ignore). Verdicts, codes and warnings
+are identical to v1 because the v2 resolvers flatten variants into the same internal mapping
+and legacy round-trips. `/graphql` stays unchanged - the two SDLs differ exactly here:
+`/graphql/schema.graphql` (flat) vs `/graphql/v2/schema.graphql` (oneOf).
+
+```graphql
+mutation { checkIn(input: { bookingRef: "T00006", bags: [
+  { checked: { weightKg: 28, lengthCm: 70 } }, { carryOn: { weightKg: 7, hasLaptop: true } } ])
+  { bookingRef seat bags { kind tagId } warnings { code } } }
+```
 
 ### Gate turnaround feed (`/api/v2/gates` + WebSocket)
 

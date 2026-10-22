@@ -147,6 +147,10 @@ builder.Services.AddSingleton<BaggageClaimBoard>();
 // the SDL is also served at /graphql/schema.graphql for spec importers.
 builder.Services.AddBagClaimGraph();
 
+// Sibling schema ("OneOf") at /graphql/v2: same roots/payloads, bag inputs as oneOf variants.
+// Shares the v1 singletons (BagScanSessionStore), so scanner sessions are common to both.
+builder.Services.AddBagClaimGraphOneOf();
+
 // Gate turnaround feed (REST snapshot + interactive WebSocket for Terminal 2E departures).
 builder.Services.AddSingleton<TurnaroundFeed>();
 
@@ -244,6 +248,11 @@ app.MapGrpcReflectionService();
 // plus a downloadable SDL for spec importers (spec-driven object model generation).
 app.MapGraphQL("/graphql");
 app.MapGraphQLSchema("/graphql/schema.graphql");
+
+// GraphQL v2 sibling: same surface, bag inputs expressed as oneOf variants (checked/carryOn).
+// The IDE rides the same GET behaviour; the v2 SDL is downloadable for spec importers.
+app.MapGraphQL("/graphql/v2", "OneOf");
+app.MapGraphQLSchema("/graphql/v2/schema.graphql", "OneOf");
 
 // Gate turnaround feed: REST snapshot + interactive WebSocket.
 app.MapGateFeed();
