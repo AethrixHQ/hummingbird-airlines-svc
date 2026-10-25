@@ -3,16 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Hummingbird Airlines - Service Directory</title>
+<title>Hummingbird Airlines — Example API service directory</title>
 <link rel="icon" href="Hummingbird-Airlines.png" type="image/png">
 <style>
   :root {
-    /* Two brand inks - the tail-livery purple and cyan - live on the accent spots only
-       (fills, selection, hover); text, borders and surfaces are hue-neutral so the
-       page reads as an airline board, not a purple mist. Chip fills keep each
-       protocol's own convention (GraphQL stays magenta); chip text follows the fill. */
+    /* Two brand inks - the tail-livery purple and cyan - carried by the elements the
+       web uses them on: purple on links and primary buttons, cyan on the section
+       kickers; chip fills keep each protocol's own convention (GraphQL stays magenta).
+       Text, borders and surfaces stay hue-neutral: the wash is gone, the accents are not. */
     --brand: #6052f0;
     --brand-hover: #7063f5;
+    --brand-soft: #a29bfe;
     --teal: #00cec9;
     --aqua: #22d3b8;
     --bg-page: #090a0c;
@@ -44,9 +45,19 @@
   header img { width: 64px; height: auto; border-radius: 10px; }
   h1 { font-size: 26px; margin: 0; letter-spacing: .3px; }
   .tagline { color: var(--text-2); margin: 2px 0 0; }
+  .langs { display: flex; gap: 6px; margin-top: 10px; }
+  .lang {
+    background: transparent; color: var(--text-2); border: 1px solid var(--border-default);
+    border-radius: 6px; padding: 2px 10px; cursor: pointer; font-size: 12px; font-family: var(--font-sans);
+    transition: color .12s ease, border-color .12s ease, background .12s ease;
+  }
+  .lang:hover { border-color: var(--brand-soft); color: var(--brand-soft); }
+  .lang[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .lang[aria-pressed="true"]:hover { background: var(--brand-hover); color: #fff; }
   h2 {
-    font-size: 13px; text-transform: uppercase; letter-spacing: 2px; color: var(--text-1);
-    margin: 40px 0 12px; border-bottom: 1px solid var(--border-default); padding-bottom: 8px;
+    font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 2px;
+    color: var(--teal); margin: 40px 0 12px;
+    border-bottom: 1px solid var(--border-default); padding-bottom: 8px;
   }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
   .card {
@@ -90,8 +101,10 @@
   .card p { color: var(--text-2); margin: 8px 0 10px; font-size: 13.5px; }
   .card ul { list-style: none; margin: 0; padding: 0; font-family: var(--font-mono); font-size: 12.5px; }
   .card li { margin: 3px 0; }
-  a { color: var(--text-2); text-decoration: none; word-break: break-all; }
-  a:hover { color: var(--teal); text-decoration: underline; }
+  /* Web pattern: links wear the soft violet, kicker labels wear the cyan, primary
+     buttons wear the solid purple. Hover deepens - like the web site. */
+  a { color: var(--brand-soft); text-decoration: none; word-break: break-all; transition: color .12s ease; }
+  a:hover { color: var(--brand); text-decoration: underline; }
   code, .code {
     font-family: var(--font-mono); font-size: 12.5px; background: var(--bg-elevated);
     border: 1px solid var(--border-subtle); border-radius: 5px; padding: 1px 6px;
@@ -116,10 +129,11 @@
   .badge.warn { color: var(--warn); border-color: rgba(249, 202, 36, 0.30); background: var(--fill-warning); }
   .badge.err  { color: var(--danger); border-color: rgba(255, 107, 107, 0.30); background: var(--fill-danger); }
   .refresh {
-    float: right; background: var(--bg-elevated); color: var(--text-1); border: 1px solid var(--border-default);
-    border-radius: 6px; padding: 4px 14px; cursor: pointer; font-size: 13px; font-family: var(--font-sans);
+    float: right; background: var(--brand); color: #fff; border: none;
+    border-radius: 6px; padding: 5px 14px; cursor: pointer; font-size: 13px; font-family: var(--font-sans);
+    transition: background .12s ease;
   }
-  .refresh:hover { border-color: var(--teal); color: var(--teal); }
+  .refresh:hover { background: var(--brand-hover); }
   footer {
     margin-top: 48px; color: var(--text-3); font-size: 12.5px;
     border-top: 1px solid var(--border-subtle); padding-top: 16px;
@@ -128,7 +142,7 @@
   footer p { margin: 0 0 8px; }
   footer .warn { color: var(--warn); background: var(--fill-warning);
                  border: 1px solid rgba(249, 202, 36, 0.30); border-radius: 6px; padding: 8px 12px; }
-  footer a { color: var(--text-2); }
+  footer a { color: var(--brand-soft); }
   footer .meta {
     display: flex; align-items: center; justify-content: space-between;
     gap: 8px 16px; flex-wrap: wrap;
@@ -145,30 +159,36 @@
   <header>
     <img src="Hummingbird-Airlines.png" alt="Hummingbird Airlines">
     <div>
-      <h1>Hummingbird Airlines &mdash; Service Directory</h1>
-      <p class="tagline">One REST middleware in front of three simulated SOAP&nbsp;1.1 legacy systems.
-         Live feeds (baggage claim board, bag scanner, gate turnaround) ride on SSE, gRPC, GraphQL
-         and WebSocket; contract documents are downloadable for API importers.
-         Built for API testing (Aethrix Labs).</p>
+      <h1>Hummingbird Airlines &mdash; <span data-i18n="h1.sub">Service Directory</span></h1>
+      <p class="tagline" data-i18n="lead">An example API application for exercising Aethrix Studio and
+         learning API testing: one REST middleware in front of three simulated SOAP&nbsp;1.1 legacy systems;
+         live feeds (baggage claim board, bag scanner, gate turnaround) on SSE, gRPC, GraphQL and
+         WebSocket; a downloadable contract for every surface. Study how the API is designed, then call it.</p>
+      <nav class="langs" aria-label="Language / Langue / 语言">
+        <button class="lang" type="button" data-lang="en" aria-pressed="true">EN</button>
+        <button class="lang" type="button" data-lang="fr" aria-pressed="false">FR</button>
+        <button class="lang" type="button" data-lang="zh" aria-pressed="false">中文</button>
+      </nav>
     </div>
   </header>
 
-  <h2>The four endpoints</h2>
+  <h2 data-i18n="sec.endpoints">The four endpoints</h2>
   <div class="grid">
     <div class="card">
-      <h3>EAI Gateway <span class="kind">REST</span></h3>
-      <p>Protocol translation only: bookings CRUD, flight info, check-in and baggage drop.
-         No business validation lives here.</p>
+      <h3><span data-i18n="c.rest.title">EAI Gateway</span> <span class="kind">REST</span></h3>
+      <p data-i18n="c.rest.tag">Pure protocol translation: bookings CRUD, flight info, check-in,
+         baggage drop. No business validation here.</p>
       <ul>
-        <li><a href="/swagger">Swagger UI</a></li>
-        <li><a href="/swagger/v1/swagger.json">OpenAPI document</a></li>
+        <li><a href="/swagger"><span data-i18n="ui.swagger">Swagger UI</span></a></li>
+        <li><a href="/swagger/v1/swagger.json"><span data-i18n="ui.openapi">OpenAPI document</span></a></li>
         <li><a href="/api/v1/flights">/api/v1/flights</a></li>
         <li><a href="/api/v1/bookings?passport=P0938211">/api/v1/bookings?passport=&hellip;</a></li>
       </ul>
     </div>
     <div class="card">
-      <h3>Booking System <span class="kind soap">SOAP 1.1</span></h3>
-      <p>Reservations system: CreateBooking, GetBooking, FindBookings, UpdateBooking, CancelBooking.</p>
+      <h3><span data-i18n="c.book.title">Booking System</span> <span class="kind soap">SOAP 1.1</span></h3>
+      <p data-i18n="c.book.tag">Reservations system: CreateBooking, GetBooking, FindBookings,
+         UpdateBooking, CancelBooking.</p>
       <ul>
         <li><a href="/soap/booking?wsdl">WSDL</a></li>
         <li>POST /soap/booking</li>
@@ -176,9 +196,9 @@
       </ul>
     </div>
     <div class="card">
-      <h3>Flight Management <span class="kind soap">SOAP 1.1</span></h3>
-      <p>Airport flight control (read-only): SearchFlights, GetFlight. Statuses evolve with the clock:
-         scheduled &rarr; check-in open &rarr; boarding &rarr; departed.</p>
+      <h3><span data-i18n="c.flm.title">Flight Management</span> <span class="kind soap">SOAP 1.1</span></h3>
+      <p data-i18n="c.flm.tag">Airport flight control (read-only): SearchFlights, GetFlight.
+         Statuses advance with the clock: scheduled &rarr; check-in open &rarr; boarding &rarr; departed.</p>
       <ul>
         <li><a href="/soap/flights?wsdl">WSDL</a></li>
         <li>POST /soap/flights</li>
@@ -186,8 +206,8 @@
       </ul>
     </div>
     <div class="card">
-      <h3>Luggage Management <span class="kind soap">SOAP 1.1</span></h3>
-      <p>Airport departure control: one-shot <code>CheckIn</code> with a polymorphic
+      <h3><span data-i18n="c.lug.title">Luggage Management</span> <span class="kind soap">SOAP 1.1</span></h3>
+      <p data-i18n="c.lug.tag">Airport departure control: one-shot <code>CheckIn</code> with a polymorphic
          bag array (at most one of each type) and single-bag <code>RegisterBaggage</code>;
          overweight accepted with a legacy warning.</p>
       <ul>
@@ -198,221 +218,251 @@
     </div>
   </div>
 
-  <h2>Streaming &amp; gRPC (baggage claim board)</h2>
+  <h2 data-i18n="sec.streaming">Streaming &amp; gRPC (baggage claim board)</h2>
   <div class="grid">
     <div class="card">
-      <h3>Baggage Claim Board <span class="kind sse">HTTP+SSE</span></h3>
-      <p>Arrivals board of CDG Terminal&nbsp;2E: belts (tapis) 1&ndash;5 fed by partner airlines
-         (HB/AF/BA/CA/LH/EK), one arrival every six board-minutes. Add <code>?speed=60</code> to
+      <h3><span data-i18n="c.sse.title">Baggage Claim Board</span> <span class="kind sse">HTTP+SSE</span></h3>
+      <p data-i18n="c.sse.tag">Arrivals board of CDG Terminal&nbsp;2E: belts (tapis) 1&ndash;5 fed by partner
+         airlines (HB/AF/BA/CA/LH/EK), one arrival every six board-minutes. Add <code>?speed=60</code> to
          compress the clock and watch transitions within seconds.</p>
       <ul>
-        <li><a href="/api/v2/baggage-claim">GET /api/v2/baggage-claim</a> (snapshot)</li>
+        <li><a href="/api/v2/baggage-claim">GET /api/v2/baggage-claim</a> <span data-i18n="li.sse.snap">(snapshot)</span></li>
         <li>/api/v2/baggage-claim/{flightNumber} (404 ARRIVAL_NOT_FOUND)</li>
-        <li><a href="/api/v2/baggage-claim/stream?speed=60">GET /api/v2/baggage-claim/stream</a> (live, resumable via Last-Event-ID)</li>
+        <li><a href="/api/v2/baggage-claim/stream?speed=60">GET /api/v2/baggage-claim/stream</a> <span data-i18n="li.sse.live">(live, resumable via Last-Event-ID)</span></li>
       </ul>
     </div>
     <div class="card">
       <h3>BaggageClaimService <span class="kind grpc">gRPC</span></h3>
-      <p>Unary + server-streaming over cleartext HTTP/2 (prior knowledge). Server reflection
-         is enabled. Proto contract: <a href="/specs/baggageclaim.proto">/specs/baggageclaim.proto</a>;
+      <p data-i18n="c.grpc.tag">Unary + server-streaming over cleartext HTTP/2 (prior knowledge). Server
+         reflection is enabled. Proto contract: <a href="/specs/baggageclaim.proto">/specs/baggageclaim.proto</a>;
          a ready-made console client lives in <code>tools/GrpcProbe</code>.</p>
       <ul>
         <li><code>BaggageClaim/GetBoard</code> (unary)</li>
         <li><code>BaggageClaim/GetArrival</code> (unary, 5=NOT_FOUND)</li>
         <li><code>BaggageClaim/WatchBoard</code> (server streaming)</li>
-        <li><a href="/api/v1/_protection">gRPC port:</a> localhost:5007 (Grpc:HttpPort)</li>
+        <li><a href="/api/v1/_protection"><span data-i18n="li.grpc.port">gRPC port:</span></a> localhost:5007 (Grpc:HttpPort)</li>
       </ul>
     </div>
   </div>
 
-  <h2>More protocols (bag scanner &middot; GraphQL &middot; gate feed)</h2>
+  <h2 data-i18n="sec.more">More protocols (bag scanner &middot; GraphQL &middot; gate feed)</h2>
   <div class="grid">
     <div class="card">
       <h3>BaggageScannerService <span class="kind grpc">gRPC bidi</span></h3>
-      <p>Make-up room bag scanner: the client streams scans, the server streams one
+      <p data-i18n="c.scan.tag">Make-up room bag scanner: the client streams scans, the server streams one
          disposition per bag (accepted / duplicate / malformed / unknownZone / limitExceeded)
          and closes with a session summary after the client half-closes. No cross-session state;
          accepted bags are routed to belts by a deterministic hash.</p>
       <ul>
         <li><code>BaggageScanner/ScanBags</code> (bidirectional streaming)</li>
-        <li>Max 8 accepted bags per session, tag shape <code>^[A-Z]{2}[0-9]{6}$</code></li>
-        <li>Zones: MU1 (default) / MU2 / MU3</li>
-        <li>Probe: <code>dotnet run --project tools/GrpcProbe -- scan</code></li>
+        <li data-i18n="li.scan.max">Max 8 accepted bags per session, tag shape <code>^[A-Z]{2}[0-9]{6}$</code></li>
+        <li data-i18n="li.scan.zones">Zones: MU1 (default) / MU2 / MU3</li>
+        <li><span data-i18n="li.scan.probe">Probe:</span> <code>dotnet run --project tools/GrpcProbe -- scan</code></li>
       </ul>
     </div>
     <div class="card">
       <h3>GraphQL <span class="kind graphql">HTTP + WS</span></h3>
-      <p>Baggage claim board + departure check-in and bag drop: queries
+      <p data-i18n="c.gql.tag">Baggage claim board + departure check-in and bag drop: queries
          <code>bagClaimBoard</code>, <code>bagClaimArrival</code> (missing flight &rarr; error
          code ARRIVAL_NOT_FOUND), <code>bagClaimBelt</code>, subscription
          <code>bagClaimEvents(speed, sinceSeq)</code>, and the mutations listed in the
          GraphQL operations table below.</p>
       <ul>
-        <li><a href="/graphql">/graphql</a> (IDE and POST endpoint) &mdash; v1: flat bag input</li>
+        <li><a href="/graphql">/graphql</a> <span data-i18n="li.gql.ide">(IDE and POST endpoint) &mdash; v1: flat bag input</span></li>
         <li><a href="/graphql/schema.graphql">/graphql/schema.graphql</a> (v1 SDL)</li>
-        <li><a href="/graphql/v2">/graphql/v2</a> (v2: same surface, bag inputs are oneOf variants)</li>
+        <li><a href="/graphql/v2">/graphql/v2</a> <span data-i18n="li.gql.v2">(v2: same surface, bag inputs are oneOf variants)</span></li>
         <li><a href="/graphql/v2/schema.graphql">/graphql/v2/schema.graphql</a> (v2 SDL)</li>
-        <li>Subscriptions over graphql-transport-ws on the same URL</li>
+        <li data-i18n="li.gql.sub">Subscriptions over graphql-transport-ws on the same URL</li>
       </ul>
     </div>
     <div class="card">
-      <h3>Gate turnaround feed <span class="kind ws">WebSocket + REST</span></h3>
-      <p>Departure-side gate board (gates 1&ndash;8, one Hummingbird rotation per gate every
+      <h3><span data-i18n="c.gates.title">Gate turnaround feed</span> <span class="kind ws">WebSocket + REST</span></h3>
+      <p data-i18n="c.gates.tag">Departure-side gate board (gates 1&ndash;8, one Hummingbird rotation per gate every
          16 feed-minutes): parking &rarr; boarding (+4) &rarr; final call (+8) &rarr; push-back
          (+10) &rarr; release (+12) &rarr; complete (+16).</p>
       <ul>
-        <li><a href="/api/v2/gates?speed=60">GET /api/v2/gates</a> (snapshot)</li>
+        <li><a href="/api/v2/gates?speed=60">GET /api/v2/gates</a> <span data-i18n="li.sse.snap2">(snapshot)</span></li>
         <li>WS /api/v2/gates/ws &mdash; <code>{"type":"subscribe","speed":60}</code></li>
-        <li>Frames: snapshot / gateEvent / ping-pong / error envelope</li>
+        <li data-i18n="li.gates.frames">Frames: snapshot / gateEvent / ping-pong / error envelope</li>
       </ul>
     </div>
   </div>
 
-  <h2>Specifications &mdash; importable documents</h2>
-  <p class="tagline">Every machine-readable contract of the service is a plain URL. Point the
-     Aethrix Labs import wizard (or Postman, SoapUI, protoc, graphql-codegen&hellip;) at one of
-     these addresses; every document is self-contained (no external references).</p>
+  <h2 data-i18n="sec.specs">Specifications &mdash; importable documents</h2>
+  <p class="tagline" data-i18n="sec.specs.tag">Every machine-readable contract of the service is a plain
+     URL. Point Aethrix Studio (or Postman, SoapUI, protoc, graphql-codegen&hellip;) at one of these
+     addresses; each document is self-contained, with no external references.</p>
   <table>
-    <thead><tr><th>Spec</th><th>Format</th><th>Covers</th></tr></thead>
+    <thead>
+      <tr>
+        <th data-i18n="spec.th.spec">Spec</th>
+        <th data-i18n="spec.th.format">Format</th>
+        <th data-i18n="spec.th.covers">Covers</th>
+      </tr>
+    </thead>
     <tbody>
       <tr>
         <td><a href="/specs/asyncapi.yaml">/specs/asyncapi.yaml</a></td>
         <td class="mono">AsyncAPI 3.0.3</td>
-        <td>SSE baggage claim stream + gate turnaround WebSocket (message payload JSON schemas)</td>
+        <td data-i18n="spec.c0">SSE baggage claim stream + gate turnaround WebSocket (message payload JSON schemas)</td>
       </tr>
       <tr>
         <td><a href="/specs/baggageclaim.proto">/specs/baggageclaim.proto</a></td>
         <td class="mono">Protobuf 3</td>
-        <td>gRPC BaggageClaim service (unary + server streaming)</td>
+        <td data-i18n="spec.c1">gRPC BaggageClaim service (unary + server streaming)</td>
       </tr>
       <tr>
         <td><a href="/specs/baggagescanner.proto">/specs/baggagescanner.proto</a></td>
         <td class="mono">Protobuf 3</td>
-        <td>gRPC BaggageScanner service (bidirectional)</td>
+        <td data-i18n="spec.c2">gRPC BaggageScanner service (bidirectional)</td>
       </tr>
       <tr>
         <td><a href="/graphql/schema.graphql">/graphql/schema.graphql</a></td>
         <td class="mono">GraphQL SDL</td>
-        <td>Queries, mutations and subscriptions over the baggage claim board (v1: flat bag input)</td>
+        <td data-i18n="spec.c3">Queries, mutations and subscriptions over the baggage claim board (v1: flat bag input)</td>
       </tr>
       <tr>
         <td><a href="/graphql/v2/schema.graphql">/graphql/v2/schema.graphql</a></td>
         <td class="mono">GraphQL SDL</td>
-        <td>Same surface as v1; bag inputs use the oneOf pattern (exactly one of CheckedBagInput / CarryOnBagInput)</td>
+        <td data-i18n="spec.c4">Same surface as v1; bag inputs use the oneOf pattern (exactly one of CheckedBagInput / CarryOnBagInput)</td>
       </tr>
       <tr>
         <td><a href="/swagger/v1/swagger.json">/swagger/v1/swagger.json</a></td>
         <td class="mono">OpenAPI 3</td>
-        <td>REST v1 gateway (bookings, flights, baggage, admin)</td>
+        <td data-i18n="spec.c5">REST v1 gateway (bookings, flights, baggage, admin)</td>
       </tr>
       <tr>
         <td class="mono"><a href="/soap/booking?wsdl">/soap/booking?wsdl</a> &middot;
           <a href="/soap/flights?wsdl">/soap/flights?wsdl</a> &middot;
           <a href="/soap/luggage?wsdl">/soap/luggage?wsdl</a></td>
         <td class="mono">WSDL 1.1</td>
-        <td>Three simulated SOAP 1.1 legacy systems</td>
+        <td data-i18n="spec.c6">Three simulated SOAP 1.1 legacy systems</td>
       </tr>
     </tbody>
   </table>
 
-  <h2>GraphQL operations &mdash; v1: POST <a href="/graphql">/graphql</a> &middot; v2: <a href="/graphql/v2">/graphql/v2</a></h2>
-  <p class="tagline">Roots: <code>Query</code>, <code>Mutation</code>, <code>Subscription</code>.
-     The subscription runs on the same URL over the graphql-transport-ws protocol.
-     checkIn / dropBag travel through the same legacy luggage path as
+  <h2 data-i18n="sec.gql">GraphQL operations &mdash; v1: POST <a href="/graphql">/graphql</a> &middot; v2: <a href="/graphql/v2">/graphql/v2</a></h2>
+  <p class="tagline" data-i18n="sec.gql.tag">Roots: <code>Query</code>, <code>Mutation</code>,
+     <code>Subscription</code>. The subscription runs on the same URL over the graphql-transport-ws
+     protocol. checkIn / dropBag travel through the same legacy luggage path as
      <code>POST /api/v1/bookings/*</code>, so error codes are identical across transports.
      scanBag sessions are scoped by the sessionId argument and expire after 30 minutes
      of inactivity. The table lists v1 (flat bag input); v2 serves the same operations
      with bags declared as oneOf variants (<code>checked</code> / <code>carryOn</code>).</p>
   <table>
-    <thead><tr><th>Method / address</th><th>Operation</th><th>Arguments</th><th>Returns &middot; error codes (extensions.code)</th></tr></thead>
+    <thead>
+      <tr>
+        <th data-i18n="gql.th0">Method / address</th>
+        <th data-i18n="gql.th1">Operation</th>
+        <th data-i18n="gql.th2">Arguments</th>
+        <th data-i18n="gql.th3">Returns &middot; error codes (extensions.code)</th>
+      </tr>
+    </thead>
     <tbody>
       <tr>
         <td class="mono">POST /graphql</td><td class="mono">bagClaimBoard</td>
         <td class="mono">speed: Int = 1</td>
-        <td>BagClaimSnapshot (belts + arrivals)</td>
+        <td data-i18n="gql.r0">BagClaimSnapshot (belts + arrivals)</td>
       </tr>
       <tr>
         <td class="mono">POST /graphql</td><td class="mono">bagClaimArrival</td>
         <td class="mono">flightNumber: String!, speed: Int = 1</td>
-        <td>BagClaimArrival &middot; errors: ARRIVAL_NOT_FOUND</td>
+        <td data-i18n="gql.r1">BagClaimArrival &middot; errors: ARRIVAL_NOT_FOUND</td>
       </tr>
       <tr>
         <td class="mono">POST /graphql</td><td class="mono">bagClaimBelt</td>
         <td class="mono">number: Int!, speed: Int = 1</td>
-        <td>BagClaimBelt or null</td>
+        <td data-i18n="gql.r2">BagClaimBelt or null</td>
       </tr>
       <tr>
         <td class="mono">WS /graphql</td><td class="mono">bagClaimEvents</td>
         <td class="mono">speed: Int = 60, sinceSeq: Long = 0</td>
-        <td>BagClaimEvent stream (replays the backlog, then live)</td>
+        <td data-i18n="gql.r3">BagClaimEvent stream (replays the backlog, then live)</td>
       </tr>
       <tr>
         <td class="mono">POST /graphql</td><td class="mono">checkIn</td>
         <td class="mono">input: CheckInInput! (bookingRef: ID!, bags: [BagInput!])</td>
-        <td>CheckInPayload (boarding pass + bags + warnings) &middot; errors:
+        <td data-i18n="gql.r4">CheckInPayload (boarding pass + bags + warnings) &middot; errors:
             BOOKING_NOT_FOUND, CHECKIN_CLOSED, ALREADY_CHECKED_IN,
             BAGGAGE_TYPE_LIMIT, FLIGHT_DEPARTED, INVALID_REQUEST, LEGACY_TIMEOUT, LEGACY_UNAVAILABLE</td>
       </tr>
       <tr>
         <td class="mono">POST /graphql</td><td class="mono">dropBag</td>
         <td class="mono">input: DropBagInput! (bookingRef: ID!, bag: BagInput!)</td>
-        <td>DropBagPayload (full bag list + warnings) &middot; errors:
+        <td data-i18n="gql.r5">DropBagPayload (full bag list + warnings) &middot; errors:
             BOOKING_NOT_FOUND, CHECKIN_REQUIRED, CHECKIN_CLOSED, BAGGAGE_TYPE_LIMIT,
             FLIGHT_DEPARTED, INVALID_REQUEST, LEGACY_TIMEOUT, LEGACY_UNAVAILABLE</td>
       </tr>
       <tr>
         <td class="mono">POST /graphql</td><td class="mono">scanBag</td>
         <td class="mono">input: ScanBagInput! (sessionId: ID!, scanId, tagNumber, zone optional &rarr; MU1)</td>
-        <td>BagScanAck (disposition ACCEPTED/DUPLICATE/MALFORMED/UNKNOWN_ZONE/LIMIT_EXCEEDED as data;
+        <td data-i18n="gql.r6">BagScanAck (disposition ACCEPTED/DUPLICATE/MALFORMED/UNKNOWN_ZONE/LIMIT_EXCEEDED as data;
             belt 1..5 by FNV-1a, 0 when rejected) &middot; errors: INVALID_REQUEST (blank sessionId)</td>
       </tr>
       <tr>
         <td class="mono">POST /graphql</td><td class="mono">resetScanSession</td>
         <td class="mono">sessionId: ID!</td>
-        <td>ResetScanSessionPayload (idempotent)</td>
+        <td data-i18n="gql.r7">ResetScanSessionPayload (idempotent)</td>
       </tr>
     </tbody>
   </table>
 
-  <h2>Hot flights <span style="float:right"><button class="refresh" onclick="refresh()">Refresh</button></span></h2>
+  <h2><span data-i18n="sec.flights">Hot flights</span>
+      <span style="float:right"><button class="refresh" onclick="refresh()" data-i18n="btn.refresh">Refresh</button></span></h2>
   <table id="flights">
-    <thead><tr><th>Flight</th><th>Route</th><th>Departure (UTC)</th><th>Departs in</th><th>Status</th><th>Gate</th></tr></thead>
+    <thead>
+      <tr>
+        <th data-i18n="fl.th0">Flight</th><th data-i18n="fl.th1">Route</th><th data-i18n="fl.th2">Departure (UTC)</th>
+        <th data-i18n="fl.th3">Departs in</th><th data-i18n="fl.th4">Status</th><th data-i18n="fl.th5">Gate</th>
+      </tr>
+    </thead>
     <tbody><tr><td colspan="6" class="mono">loading&hellip;</td></tr></tbody>
   </table>
 
-  <h2>Demo bookings (deterministic &middot; reset on every restart)</h2>
+  <h2 data-i18n="sec.bookings">Demo bookings (deterministic &middot; reset on every restart)</h2>
   <table id="bookings">
-    <thead><tr><th>Ref</th><th>Passenger</th><th>Cabin</th><th>Frozen scenario</th><th>Live state</th></tr></thead>
+    <thead>
+      <tr>
+        <th data-i18n="bk.th0">Ref</th><th data-i18n="bk.th1">Passenger</th><th data-i18n="bk.th2">Cabin</th>
+        <th data-i18n="bk.th3">Frozen scenario</th><th data-i18n="bk.th4">Live state</th>
+      </tr>
+    </thead>
     <tbody>
-      <tr data-ref="GZT001"><td class="mono">GZT001</td><td>John Doe</td><td>Economy</td>
-          <td>Far-future flight: happy-path check-in and baggage (limits 23 / 8 kg)</td><td class="state mono">&hellip;</td></tr>
-      <tr data-ref="QWX452"><td class="mono">QWX452</td><td>Alice Martin</td><td>Business</td>
-          <td>Check-in open (~45 min): overweight tests, checked limit 30 kg</td><td class="state mono">&hellip;</td></tr>
-      <tr data-ref="LMN789"><td class="mono">LMN789</td><td>Bob Chen</td><td>Economy</td>
-          <td>Departs in ~29 min: check-in triggers CHECKIN_CLOSED (409)</td><td class="state mono">&hellip;</td></tr>
-      <tr data-ref="PRS205"><td class="mono">PRS205</td><td>Carol Dupont</td><td>First</td>
-          <td>Already checked in: re-check-in triggers ALREADY_CHECKED_IN; bag drop ready</td><td class="state mono">&hellip;</td></tr>
-      <tr data-ref="TRV310"><td class="mono">TRV310</td><td>David Wang</td><td>Economy</td>
-          <td>Generic target for PUT / DELETE tests</td><td class="state mono">&hellip;</td></tr>
+      <tr data-ref="GZT001"><td class="mono">GZT001</td><td>John Doe</td><td data-i18n="bk.c0">Economy</td>
+          <td data-i18n="bk.s0">Far-future flight: happy-path check-in and baggage (limits 23 / 8 kg)</td><td class="state mono">&hellip;</td></tr>
+      <tr data-ref="QWX452"><td class="mono">QWX452</td><td>Alice Martin</td><td data-i18n="bk.c1">Business</td>
+          <td data-i18n="bk.s1">Check-in open (~45 min): overweight tests, checked limit 30 kg</td><td class="state mono">&hellip;</td></tr>
+      <tr data-ref="LMN789"><td class="mono">LMN789</td><td>Bob Chen</td><td data-i18n="bk.c2">Economy</td>
+          <td data-i18n="bk.s2">Departs in ~29 min: check-in triggers CHECKIN_CLOSED (409)</td><td class="state mono">&hellip;</td></tr>
+      <tr data-ref="PRS205"><td class="mono">PRS205</td><td>Carol Dupont</td><td data-i18n="bk.c3">First</td>
+          <td data-i18n="bk.s3">Already checked in: re-check-in triggers ALREADY_CHECKED_IN; bag drop ready</td><td class="state mono">&hellip;</td></tr>
+      <tr data-ref="TRV310"><td class="mono">TRV310</td><td>David Wang</td><td data-i18n="bk.c4">Economy</td>
+          <td data-i18n="bk.s4">Generic target for PUT / DELETE tests</td><td class="state mono">&hellip;</td></tr>
     </tbody>
   </table>
 
-  <h2>Business rules quick reference</h2>
+  <h2 data-i18n="sec.rules">Business rules quick reference</h2>
   <table>
-    <thead><tr><th>Situation</th><th>Backend behaviour</th><th>Middleware response</th></tr></thead>
+    <thead>
+      <tr>
+        <th data-i18n="ru.th0">Situation</th>
+        <th data-i18n="ru.th1">Backend behaviour</th>
+        <th data-i18n="ru.th2">Middleware response</th>
+      </tr>
+    </thead>
     <tbody>
-      <tr><td>Check-in &lt; 30 min before departure</td><td class="mono">fault CHECKIN_CLOSED</td><td class="mono">409 problem+json</td></tr>
-      <tr><td>Checked bag over allowance (First/Business 30 kg, Economy 23 kg)</td><td>accepted + legacy warning</td><td class="mono">201 + warnings[]</td></tr>
-      <tr><td>Carry-on over allowance (First/Business 10 kg, Economy 8 kg)</td><td>accepted + legacy warning</td><td class="mono">201 + warnings[]</td></tr>
-      <tr><td>More than one bag of the same type per passenger</td><td class="mono">fault BAGGAGE_TYPE_LIMIT</td><td class="mono">409</td></tr>
-      <tr><td>Baggage before check-in</td><td class="mono">fault CHECKIN_REQUIRED</td><td class="mono">409</td></tr>
-      <tr><td>Unknown booking / flight</td><td class="mono">BOOKING_NOT_FOUND / FLIGHT_NOT_FOUND</td><td class="mono">404</td></tr>
-      <tr><td>Cancelled or departed flight</td><td class="mono">FLIGHT_CANCELLED / FLIGHT_DEPARTED</td><td class="mono">409</td></tr>
-      <tr><td>Bookings table full (&gt; 50)</td><td colspan="2">oldest record evicted (FIFO), no persistence</td></tr>
+      <tr><td data-i18n="ru.r0">Check-in &lt; 30 min before departure</td><td class="mono">fault CHECKIN_CLOSED</td><td class="mono">409 problem+json</td></tr>
+      <tr><td data-i18n="ru.r1">Checked bag over allowance (First/Business 30 kg, Economy 23 kg)</td><td>accepted + legacy warning</td><td class="mono">201 + warnings[]</td></tr>
+      <tr><td data-i18n="ru.r2">Carry-on over allowance (First/Business 10 kg, Economy 8 kg)</td><td>accepted + legacy warning</td><td class="mono">201 + warnings[]</td></tr>
+      <tr><td data-i18n="ru.r3">More than one bag of the same type per passenger</td><td class="mono">fault BAGGAGE_TYPE_LIMIT</td><td class="mono">409</td></tr>
+      <tr><td data-i18n="ru.r4">Baggage before check-in</td><td class="mono">fault CHECKIN_REQUIRED</td><td class="mono">409</td></tr>
+      <tr><td data-i18n="ru.r5">Unknown booking / flight</td><td class="mono">BOOKING_NOT_FOUND / FLIGHT_NOT_FOUND</td><td class="mono">404</td></tr>
+      <tr><td data-i18n="ru.r6">Cancelled or departed flight</td><td class="mono">FLIGHT_CANCELLED / FLIGHT_DEPARTED</td><td class="mono">409</td></tr>
+      <tr><td data-i18n="ru.r7">Bookings table full (&gt; 50)</td><td colspan="2">oldest record evicted (FIFO), no persistence</td></tr>
     </tbody>
   </table>
 
-  <h2>Warning translation example</h2>
+  <h2 data-i18n="sec.warnex">Warning translation example</h2>
 <pre class="code">legacy in : W|BAGGAGE_WEIGHT|checked|24.9|23.0
 JSON out : {
   "code": "CHECKED_BAGGAGE_OVERWEIGHT", "category": "baggageWeight",
@@ -421,44 +471,51 @@ JSON out : {
   "legacyMessage": "W|BAGGAGE_WEIGHT|checked|24.9|23.0"
 }</pre>
 
-  <h2>Failure injection (chaos header)</h2>
+  <h2 data-i18n="sec.chaos">Failure injection (chaos header)</h2>
 <pre class="code">curl -H "X-HB-Simulate: timeout=12"   http://localhost:5000/api/v1/flights/HB903   # -> 504 LEGACY_TIMEOUT
 curl -H "X-HB-Simulate: fault"        http://localhost:5000/api/v1/flights/HB903   # -> 502 INTERNAL_ERROR
 curl -H "X-HB-Simulate: unavailable"  http://localhost:5000/api/v1/flights/HB903   # -> 502 LEGACY_UNAVAILABLE</pre>
-  <p class="tagline">The header also works when calling the SOAP endpoints directly, and is relayed by the middleware to the backends.</p>
+  <p class="tagline" data-i18n="sec.chaos.tag">The header also works when calling the SOAP endpoints
+     directly, and is relayed by the middleware to the backends.</p>
 
-  <h2>Reset demo data</h2>
-  <p class="tagline">
+  <h2 data-i18n="sec.reset">Reset demo data</h2>
+  <p class="tagline" data-i18n="sec.reset.tag">
     <code>POST /api/v1/admin/reset</code> drops every booking, replays the five frozen demo
     seeds and restarts the deterministic counters &mdash; repeat a scenario without restarting
     the system. Global operation (no sessions, no concurrency guarantees); rate limits apply.
   </p>
 <pre class="code">curl -X POST http://localhost:5000/api/v1/admin/reset</pre>
-  <p><button class="refresh" style="float:none" onclick="resetDemo()">Reset demo data now</button>
+  <p><button class="refresh" style="float:none" onclick="resetDemo()" data-i18n="btn.reset">Reset demo data now</button>
      <span id="resetResult" class="mono"></span></p>
 
-  <h2>Abuse protection</h2>
+  <h2 data-i18n="sec.abuse">Abuse protection</h2>
   <table id="protection">
-    <thead><tr><th>Scope</th><th>Limit</th><th>Note</th></tr></thead>
+    <thead>
+      <tr>
+        <th data-i18n="pr.th0">Scope</th>
+        <th data-i18n="pr.th1">Limit</th>
+        <th data-i18n="pr.th2">Note</th>
+      </tr>
+    </thead>
     <tbody><tr><td colspan="3" class="mono">loading&hellip;</td></tr></tbody>
   </table>
 
   <footer>
     <div class="legal">
-      <p>
+      <p data-i18n="f.legal">
         &copy; 2018&ndash;2026 Huaxing YUAN &middot; Released under the
         <a href="https://opensource.org/licenses/MIT">MIT License</a>.
         Hummingbird Airlines is a fictional airline for software testing demonstrations.
         State is in-memory only and resets on restart.
       </p>
-      <p class="warn">
+      <p class="warn" data-i18n="f.warn">
         This is a free public test server intended solely for understanding, learning,
         practice and API testing. Abuse, large-scale load/attack traffic or any illegal
         use is prohibited; the operator reserves the right to block offenders without notice.
       </p>
       <div class="meta">
-        <span class="tm">Aethrix&reg; is a registered trademark of Huaxing YUAN (EPO).</span>
-        <span class="powered"><img src="img/aethrix-icon.svg" alt=""> powered by <strong>Aethrix Labs</strong></span>
+        <span class="tm" data-i18n="f.tm">Aethrix&reg; is a registered trademark of Huaxing YUAN (EPO).</span>
+        <span class="powered"><img src="img/aethrix-icon.svg" alt=""> <span data-i18n="f.powered">powered by Aethrix Labs</span></span>
       </div>
     </div>
   </footer>
@@ -546,8 +603,10 @@ async function loadProtection() {
 async function refresh() {
   const flights = ["HB900","HB901","HB902","HB903","HB904","HB905","HB906","HB907"];
   const tbody = document.querySelector("#flights tbody");
-  tbody.replaceChildren(el("td",{colspan:"6"},""));
-  tbody.deleteRow(0);
+  // replaceChildren() alone drops the placeholder row; the old deleteRow(0)
+  // call that followed threw IndexSizeError (the tbody then holds no rows)
+  // every 20 s and aborted the whole refresh before any flight rendered.
+  tbody.replaceChildren();
   for (const nr of flights) {
     const res = await loadFlight(nr);
     const tr = el("tr");
@@ -580,31 +639,42 @@ setInterval(refresh, 20000);
 
 // ── Card rim light ─────────────────────────────────────────────────────────
 // A spring, not a tracker: the rim's light falls behind the cursor and eases
-// back in, otherwise it reads as a hard follow. Same physics as the portal:
-//   DAMPING = 2*sqrt(STIFFNESS) * ZETA
-//   ZETA 1.0 -> no overshoot · 0.7 -> ~5% · 0.5 -> ~16% · 0.4 -> ~25%
-// Skipped entirely for coarse pointers and for prefers-reduced-motion visitors.
+// back in. Physics identical to the portal treatment, with three robustness
+// rules learned from field testing:
+//   * the spring is stepped HERE, on pointermove, because pointermove fires
+//     exactly when the pointer travels. Tracking therefore works even in
+//     windows where the animation-frame clock is frozen or throttled
+//     (occluded windows, background tabs, embedded previews);
+//   * while the mouse is stepping the spring, the rAF loop stays hands-off
+//     and only homes the settle tail; on a stop, rAF glides the remainder;
+//   * the wheel slides a card under a still pointer and fires no pointermove,
+//     so every live card re-aims from its last pointer position on scroll.
+// Skipped entirely for coarse pointers and prefers-reduced-motion visitors.
 (function () {
   "use strict";
   const finePointer = window.matchMedia("(pointer: fine)");
   const calmMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   if (!finePointer.matches || calmMotion.matches) return;
 
-  const MAX_STEP = 2.2;      // soft travel ceiling per frame, % of the card
+  const MAX_STEP = 2.2;      // soft travel ceiling per step, % of the card
   const ACCEL = 0.22;        // ceiling on how fast that speed may build
   const STIFFNESS = 0.06;
   const DAMPING = 0.52;
+  const HANDLER_LED_MS = 40; // rAF stays hands-off this long after a pointer step
+
+  let lastStepAt = 0;
+  const liveCards = [];
 
   document.querySelectorAll(".card").forEach(function (card) {
     let x = 50, y = 50, vx = 0, vy = 0, tx = 50, ty = 50;
-    let running = false, live = false;
+    let running = false, live = false, lastSeen = null;
 
     function write(px, py) {
       card.style.setProperty("--mx", px.toFixed(2) + "%");
       card.style.setProperty("--my", py.toFixed(2) + "%");
     }
 
-    function frame() {
+    function physics() {
       const fx = (tx - x) * STIFFNESS - vx * DAMPING;
       const fy = (ty - y) * STIFFNESS - vy * DAMPING;
       const push = Math.sqrt(fx * fx + fy * fy);
@@ -622,9 +692,19 @@ setInterval(refresh, 20000);
       }
       x += vx;
       y += vy;
+    }
+
+    function homed() {
+      return Math.abs(tx - x) < 0.05 && Math.abs(ty - y) < 0.05 &&
+             Math.abs(vx) < 0.05 && Math.abs(vy) < 0.05;
+    }
+
+    function frame() {
+      if (performance.now() - lastStepAt >= HANDLER_LED_MS) {
+        physics();
+      }
       write(x, y);
-      if (Math.abs(tx - x) < 0.05 && Math.abs(ty - y) < 0.05 &&
-          Math.abs(vx) < 0.05 && Math.abs(vy) < 0.05) {
+      if (homed()) {
         write(tx, ty);
         running = false;
         return;
@@ -632,11 +712,12 @@ setInterval(refresh, 20000);
       requestAnimationFrame(frame);
     }
 
-    card.addEventListener("pointermove", function (e) {
+    function track(clientX, clientY) {
       const rect = card.getBoundingClientRect();
       if (!rect.width || !rect.height) return;
-      tx = (e.clientX - rect.left) / rect.width * 100;
-      ty = (e.clientY - rect.top) / rect.height * 100;
+      lastSeen = { x: clientX, y: clientY };
+      tx = (clientX - rect.left) / rect.width * 100;
+      ty = (clientY - rect.top) / rect.height * 100;
       if (!live) {
         // First entry has no previous position - put the light under the
         // cursor instead of gliding it in from the centre.
@@ -645,16 +726,357 @@ setInterval(refresh, 20000);
         y = ty;
         vx = 0;
         vy = 0;
-        write(x, y);
       }
+      // Step with the event: pointer travel is where the code must not lean
+      // on the animation-frame clock.
+      lastStepAt = performance.now();
+      physics();
+      write(x, y);
       if (!running) {
         running = true;
         requestAnimationFrame(frame);
       }
-    }, { passive: true });
+    }
 
+    function reaim() {
+      if (live && lastSeen) track(lastSeen.x, lastSeen.y);
+    }
+
+    card.addEventListener("pointermove", function (e) { track(e.clientX, e.clientY); }, { passive: true });
     card.addEventListener("pointerleave", function () { live = false; }, { passive: true });
+    // A card's own scrollbar (none today, but belt and braces).
+    card.addEventListener("scroll", reaim, { passive: true, capture: true });
+
+    liveCards.push({ reaim: reaim });
   });
+
+  // Page scrolling slides every card under a still pointer without firing
+  // pointermove - re-aim each live card from the position it last saw.
+  window.addEventListener("scroll", function () {
+    liveCards.forEach(function (c) { c.reaim(); });
+  }, { passive: true });
+})();
+</script>
+
+<script>
+// ── Language switcher (EN / FR / 中文) ──────────────────────────────────────
+// Static markup is the English source of truth. Nodes carrying data-i18n get
+// their innerHTML swapped from the dictionary; mono/technical cells (paths,
+// protocol codes, JSON) are deliberately untouched, and strings rendered by
+// JS (badge labels, refresh/reset status lines) stay English too.
+// Default language: stored choice > navigator.language > English.
+const I18N = {
+  en: {
+    __title: "Hummingbird Airlines — Example API service directory",
+    "h1.sub": "Service Directory",
+    "lead": "An example API application for exercising Aethrix Studio and learning API testing: one REST middleware in front of three simulated SOAP\u00A01.1 legacy systems; live feeds (baggage claim board, bag scanner, gate turnaround) on SSE, gRPC, GraphQL and WebSocket; a downloadable contract for every surface. Study how the API is designed, then call it.",
+    "sec.endpoints": "The four endpoints",
+    "c.rest.title": "EAI Gateway",
+    "c.rest.tag": "Pure protocol translation: bookings CRUD, flight info, check-in, baggage drop. No business validation here.",
+    "ui.swagger": "Swagger UI",
+    "ui.openapi": "OpenAPI document",
+    "c.book.title": "Booking System",
+    "c.book.tag": "Reservations system: CreateBooking, GetBooking, FindBookings, UpdateBooking, CancelBooking.",
+    "c.flm.title": "Flight Management",
+    "c.flm.tag": "Airport flight control (read-only): SearchFlights, GetFlight. Statuses advance with the clock: scheduled \u2192 check-in open \u2192 boarding \u2192 departed.",
+    "c.lug.title": "Luggage Management",
+    "c.lug.tag": "Airport departure control: one-shot <code>CheckIn</code> with a polymorphic bag array (at most one of each type) and single-bag <code>RegisterBaggage</code>; overweight accepted with a legacy warning.",
+    "sec.streaming": "Streaming &amp; gRPC (baggage claim board)",
+    "c.sse.title": "Baggage Claim Board",
+    "c.sse.tag": "Arrivals board of CDG Terminal\u00A02E: belts (tapis) 1\u20135 fed by partner airlines (HB/AF/BA/CA/LH/EK), one arrival every six board-minutes. Add <code>?speed=60</code> to compress the clock and watch transitions within seconds.",
+    "li.sse.snap": "(snapshot)",
+    "li.sse.snap2": "(snapshot)",
+    "li.sse.live": "(live, resumable via Last-Event-ID)",
+    "c.grpc.tag": "Unary + server-streaming over cleartext HTTP/2 (prior knowledge). Server reflection is enabled. Proto contract: <a href=\"/specs/baggageclaim.proto\">/specs/baggageclaim.proto</a>; a ready-made console client lives in <code>tools/GrpcProbe</code>.",
+    "li.grpc.port": "gRPC port:",
+    "sec.more": "More protocols (bag scanner \u00B7 GraphQL \u00B7 gate feed)",
+    "c.scan.tag": "Make-up room bag scanner: the client streams scans, the server streams one disposition per bag (accepted / duplicate / malformed / unknownZone / limitExceeded) and closes with a session summary after the client half-closes. No cross-session state; accepted bags are routed to belts by a deterministic hash.",
+    "li.scan.max": "Max 8 accepted bags per session, tag shape <code>^[A-Z]{2}[0-9]{6}$</code>",
+    "li.scan.zones": "Zones: MU1 (default) / MU2 / MU3",
+    "li.scan.probe": "Probe:",
+    "c.gql.tag": "Baggage claim board + departure check-in and bag drop: queries <code>bagClaimBoard</code>, <code>bagClaimArrival</code> (missing flight \u2192 error code ARRIVAL_NOT_FOUND), <code>bagClaimBelt</code>, subscription <code>bagClaimEvents(speed, sinceSeq)</code>, and the mutations listed in the GraphQL operations table below.",
+    "li.gql.ide": "(IDE and POST endpoint) \u2014 v1: flat bag input",
+    "li.gql.v2": "(v2: same surface, bag inputs are oneOf variants)",
+    "li.gql.sub": "Subscriptions over graphql-transport-ws on the same URL",
+    "c.gates.title": "Gate turnaround feed",
+    "c.gates.tag": "Departure-side gate board (gates 1\u20138, one Hummingbird rotation per gate every 16 feed-minutes): parking \u2192 boarding (+4) \u2192 final call (+8) \u2192 push-back (+10) \u2192 release (+12) \u2192 complete (+16).",
+    "li.gates.frames": "Frames: snapshot / gateEvent / ping-pong / error envelope",
+    "sec.specs": "Specifications \u2014 importable documents",
+    "sec.specs.tag": "Every machine-readable contract of the service is a plain URL. Point Aethrix Studio (or Postman, SoapUI, protoc, graphql-codegen\u2026) at one of these addresses; each document is self-contained, with no external references.",
+    "spec.th.spec": "Spec", "spec.th.format": "Format", "spec.th.covers": "Covers",
+    "spec.c0": "SSE baggage claim stream + gate turnaround WebSocket (message payload JSON schemas)",
+    "spec.c1": "gRPC BaggageClaim service (unary + server streaming)",
+    "spec.c2": "gRPC BaggageScanner service (bidirectional)",
+    "spec.c3": "Queries, mutations and subscriptions over the baggage claim board (v1: flat bag input)",
+    "spec.c4": "Same surface as v1; bag inputs use the oneOf pattern (exactly one of CheckedBagInput / CarryOnBagInput)",
+    "spec.c5": "REST v1 gateway (bookings, flights, baggage, admin)",
+    "spec.c6": "Three simulated SOAP 1.1 legacy systems",
+    "sec.gql": "GraphQL operations \u2014 v1: POST <a href=\"/graphql\">/graphql</a> \u00B7 v2: <a href=\"/graphql/v2\">/graphql/v2</a>",
+    "sec.gql.tag": "Roots: <code>Query</code>, <code>Mutation</code>, <code>Subscription</code>. The subscription runs on the same URL over the graphql-transport-ws protocol. checkIn / dropBag travel through the same legacy luggage path as <code>POST /api/v1/bookings/*</code>, so error codes are identical across transports. scanBag sessions are scoped by the sessionId argument and expire after 30 minutes of inactivity. The table lists v1 (flat bag input); v2 serves the same operations with bags declared as oneOf variants (<code>checked</code> / <code>carryOn</code>).",
+    "gql.th0": "Method / address", "gql.th1": "Operation", "gql.th2": "Arguments",
+    "gql.th3": "Returns \u00B7 error codes (extensions.code)",
+    "gql.r0": "BagClaimSnapshot (belts + arrivals)",
+    "gql.r1": "BagClaimArrival \u00B7 errors: ARRIVAL_NOT_FOUND",
+    "gql.r2": "BagClaimBelt or null",
+    "gql.r3": "BagClaimEvent stream (replays the backlog, then live)",
+    "gql.r4": "CheckInPayload (boarding pass + bags + warnings) \u00B7 errors: BOOKING_NOT_FOUND, CHECKIN_CLOSED, ALREADY_CHECKED_IN, BAGGAGE_TYPE_LIMIT, FLIGHT_DEPARTED, INVALID_REQUEST, LEGACY_TIMEOUT, LEGACY_UNAVAILABLE",
+    "gql.r5": "DropBagPayload (full bag list + warnings) \u00B7 errors: BOOKING_NOT_FOUND, CHECKIN_REQUIRED, CHECKIN_CLOSED, BAGGAGE_TYPE_LIMIT, FLIGHT_DEPARTED, INVALID_REQUEST, LEGACY_TIMEOUT, LEGACY_UNAVAILABLE",
+    "gql.r6": "BagScanAck (disposition ACCEPTED/DUPLICATE/MALFORMED/UNKNOWN_ZONE/LIMIT_EXCEEDED as data; belt 1..5 by FNV-1a, 0 when rejected) \u00B7 errors: INVALID_REQUEST (blank sessionId)",
+    "gql.r7": "ResetScanSessionPayload (idempotent)",
+    "sec.flights": "Hot flights",
+    "btn.refresh": "Refresh",
+    "fl.th0": "Flight", "fl.th1": "Route", "fl.th2": "Departure (UTC)",
+    "fl.th3": "Departs in", "fl.th4": "Status", "fl.th5": "Gate",
+    "sec.bookings": "Demo bookings (deterministic \u00B7 reset on every restart)",
+    "bk.th0": "Ref", "bk.th1": "Passenger", "bk.th2": "Cabin",
+    "bk.th3": "Frozen scenario", "bk.th4": "Live state",
+    "bk.c0": "Economy", "bk.c1": "Business", "bk.c2": "Economy", "bk.c3": "First", "bk.c4": "Economy",
+    "bk.s0": "Far-future flight: happy-path check-in and baggage (limits 23 / 8 kg)",
+    "bk.s1": "Check-in open (~45 min): overweight tests, checked limit 30 kg",
+    "bk.s2": "Departs in ~29 min: check-in triggers CHECKIN_CLOSED (409)",
+    "bk.s3": "Already checked in: re-check-in triggers ALREADY_CHECKED_IN; bag drop ready",
+    "bk.s4": "Generic target for PUT / DELETE tests",
+    "sec.rules": "Business rules quick reference",
+    "ru.th0": "Situation", "ru.th1": "Backend behaviour", "ru.th2": "Middleware response",
+    "ru.r0": "Check-in &lt; 30 min before departure",
+    "ru.r1": "Checked bag over allowance (First/Business 30 kg, Economy 23 kg)",
+    "ru.r2": "Carry-on over allowance (First/Business 10 kg, Economy 8 kg)",
+    "ru.r3": "More than one bag of the same type per passenger",
+    "ru.r4": "Baggage before check-in",
+    "ru.r5": "Unknown booking / flight",
+    "ru.r6": "Cancelled or departed flight",
+    "ru.r7": "Bookings table full (&gt; 50)",
+    "sec.warnex": "Warning translation example",
+    "sec.chaos": "Failure injection (chaos header)",
+    "sec.chaos.tag": "The header also works when calling the SOAP endpoints directly, and is relayed by the middleware to the backends.",
+    "sec.reset": "Reset demo data",
+    "sec.reset.tag": "<code>POST /api/v1/admin/reset</code> drops every booking, replays the five frozen demo seeds and restarts the deterministic counters \u2014 repeat a scenario without restarting the system. Global operation (no sessions, no concurrency guarantees); rate limits apply.",
+    "btn.reset": "Reset demo data now",
+    "sec.abuse": "Abuse protection",
+    "pr.th0": "Scope", "pr.th1": "Limit", "pr.th2": "Note",
+    "f.legal": "\u00A9 2018\u20132026 Huaxing YUAN \u00B7 Released under the <a href=\"https://opensource.org/licenses/MIT\">MIT License</a>. Hummingbird Airlines is a fictional airline for software testing demonstrations. State is in-memory only and resets on restart.",
+    "f.warn": "This is a free public test server intended solely for understanding, learning, practice and API testing. Abuse, large-scale load/attack traffic or any illegal use is prohibited; the operator reserves the right to block offenders without notice.",
+    "f.tm": "Aethrix\u00AE is a registered trademark of Huaxing YUAN (EPO).",
+    "f.powered": "powered by <strong>Aethrix Labs</strong>"
+  },
+
+  fr: {
+    __title: "Hummingbird Airlines — Annuaire des services (API d'exemple)",
+    "h1.sub": "Annuaire des services",
+    "lead": "Une application d'exemple pour exercer Aethrix Studio et apprendre le test d'API : un middleware REST devant trois syst\u00E8mes SOAP\u00A01.1 historiques simul\u00E9s ; des flux temps r\u00E9el (tapis de r\u00E9clamation, scanner bagages, rotations portes) en SSE, gRPC, GraphQL et WebSocket ; un contrat t\u00E9l\u00E9chargeable pour chaque surface. \u00C9tudiez la conception de l'API, puis appelez-la.",
+    "sec.endpoints": "Les quatre points d'entr\u00E9e",
+    "c.rest.title": "Passerelle EAI",
+    "c.rest.tag": "Simple traduction de protocole : CRUD des r\u00E9servations, infos vols, enregistrement, d\u00E9p\u00F4t bagages. Aucune validation m\u00E9tier ici.",
+    "ui.swagger": "Interface Swagger",
+    "ui.openapi": "Document OpenAPI",
+    "c.book.title": "Syst\u00E8me de r\u00E9servation",
+    "c.book.tag": "Syst\u00E8me de r\u00E9servations : CreateBooking, GetBooking, FindBookings, UpdateBooking, CancelBooking.",
+    "c.flm.title": "Gestion des vols",
+    "c.flm.tag": "Contr\u00F4le a\u00E9roportuaire des vols (lecture seule) : SearchFlights, GetFlight. Les statuts avancent avec l'horloge : programm\u00E9 \u2192 enregistrement ouvert \u2192 embarquement \u2192 parti.",
+    "c.lug.title": "Gestion des bagages",
+    "c.lug.tag": "Contr\u00F4le d'embarquement : <code>CheckIn</code> unique avec un tableau polymorphe de bagages (au plus un de chaque type) et <code>RegisterBaggage</code> bagage par bagage ; surnum\u00E9raire accept\u00E9 avec un avertissement legacy.",
+    "sec.streaming": "Flux et gRPC (tapis de r\u00E9clamation)",
+    "c.sse.title": "Tableau des tapis",
+    "c.sse.tag": "Tableau des arriv\u00E9es du terminal\u00A02E de CDG : tapis 1\u20135 aliment\u00E9s par les compagnies partenaires (HB/AF/BA/CA/LH/EK), un arrivage toutes les six minutes de tableau. Ajoutez <code>?speed=60</code> pour compresser l'horloge et voir les transitions en quelques secondes.",
+    "li.sse.snap": "(instantan\u00E9)",
+    "li.sse.snap2": "(instantan\u00E9)",
+    "li.sse.live": "(direct, reprise via Last-Event-ID)",
+    "c.grpc.tag": "Appels unaires + flux serveur sur HTTP/2 en clair (prior knowledge). R\u00E9flexion serveur activ\u00E9e. Contrat proto : <a href=\"/specs/baggageclaim.proto\">/specs/baggageclaim.proto</a> ; un client console pr\u00EAt \u00E0 l'emploi vit dans <code>tools/GrpcProbe</code>.",
+    "li.grpc.port": "Port gRPC :",
+    "sec.more": "Autres protocoles (scanner bagages \u00B7 GraphQL \u00B7 flux des portes)",
+    "c.scan.tag": "Scanner du make-up room : le client met en flux ses scans, le serveur met en flux une disposition par bagage (accepted / duplicate / malformed / unknownZone / limitExceeded) et cl\u00F4t par un r\u00E9capitulatif de session apr\u00E8s le half-close du client. Aucun \u00E9tat inter-sessions ; les bagages accept\u00E9s sont rout\u00E9s vers les tapis par un hachage d\u00E9terministe.",
+    "li.scan.max": "8 bagages accept\u00E9s au plus par session, forme de l'\u00E9tiquette <code>^[A-Z]{2}[0-9]{6}$</code>",
+    "li.scan.zones": "Zones : MU1 (d\u00E9faut) / MU2 / MU3",
+    "li.scan.probe": "Sonde :",
+    "c.gql.tag": "Tapis de r\u00E9clamation + enregistrement d\u00E9part et d\u00E9p\u00F4t bagages : requ\u00EAtes <code>bagClaimBoard</code>, <code>bagClaimArrival</code> (vol inconnu \u2192 code d'erreur ARRIVAL_NOT_FOUND), <code>bagClaimBelt</code>, abonnement <code>bagClaimEvents(speed, sinceSeq)</code>, et les mutations list\u00E9es dans le tableau GraphQL ci-dessous.",
+    "li.gql.ide": "(EDI et endpoint POST) \u2014 v1 : sac \u00E0 plat",
+    "li.gql.v2": "(v2 : m\u00EAme surface, les bagages sont des variantes oneOf)",
+    "li.gql.sub": "Abonnements via graphql-transport-ws sur la m\u00EAme URL",
+    "c.gates.title": "Flux des rotations portes",
+    "c.gates.tag": "Tableau portes c\u00F4t\u00E9 d\u00E9part (portes 1\u20138, une rotation Hummingbird par porte toutes les 16 minutes de flux) : parking \u2192 embarquement (+4) \u2192 dernier appel (+8) \u2192 push-back (+10) \u2192 lib\u00E9ration (+12) \u2192 termin\u00E9 (+16).",
+    "li.gates.frames": "Trames : snapshot / gateEvent / ping-pong / enveloppe d'erreur",
+    "sec.specs": "Sp\u00E9cifications \u2014 documents importables",
+    "sec.specs.tag": "Chaque contrat lisible par une machine est une URL simple. Pointez Aethrix Studio (ou Postman, SoapUI, protoc, graphql-codegen\u2026) vers l'une de ces adresses ; chaque document est autonome, sans r\u00E9f\u00E9rences externes.",
+    "spec.th.spec": "Sp\u00E9cification", "spec.th.format": "Format", "spec.th.covers": "Couvre",
+    "spec.c0": "Flux SSE du tapis + WebSocket des portes (sch\u00E9mas JSON des messages)",
+    "spec.c1": "Service gRPC BaggageClaim (unaire + flux serveur)",
+    "spec.c2": "Service gRPC BaggageScanner (bidirectionnel)",
+    "spec.c3": "Requ\u00EAtes, mutations et abonnements sur le tableau des tapis (v1 : sac \u00E0 plat)",
+    "spec.c4": "M\u00EAme surface que v1 ; les bagages utilisent le motif oneOf (exactement un de CheckedBagInput / CarryOnBagInput)",
+    "spec.c5": "Passerelle REST v1 (r\u00E9servations, vols, bagages, admin)",
+    "spec.c6": "Trois syst\u00E8mes SOAP\u00A01.1 historiques simul\u00E9s",
+    "sec.gql": "Op\u00E9rations GraphQL \u2014 v1 : POST <a href=\"/graphql\">/graphql</a> \u00B7 v2 : <a href=\"/graphql/v2\">/graphql/v2</a>",
+    "sec.gql.tag": "Racines : <code>Query</code>, <code>Mutation</code>, <code>Subscription</code>. L'abonnement court sur la m\u00EAme URL via le protocole graphql-transport-ws. checkIn / dropBag empruntent le m\u00EAme chemin bagages legacy que <code>POST /api/v1/bookings/*</code> : les codes d'erreur sont identiques entre transports. Les sessions scanBag sont born\u00E9es par l'argument sessionId et expirent apr\u00E8s 30 minutes d'inactivit\u00E9. Le tableau liste v1 (sac \u00E0 plat) ; v2 sert les m\u00EAmes op\u00E9rations avec les bagages d\u00E9clar\u00E9s en variantes oneOf (<code>checked</code> / <code>carryOn</code>).",
+    "gql.th0": "M\u00E9thode / adresse", "gql.th1": "Op\u00E9ration", "gql.th2": "Arguments",
+    "gql.th3": "Retours \u00B7 codes d'erreur (extensions.code)",
+    "gql.r0": "BagClaimSnapshot (tapis + arriv\u00E9es)",
+    "gql.r1": "BagClaimArrival \u00B7 erreurs : ARRIVAL_NOT_FOUND",
+    "gql.r2": "BagClaimBelt ou null",
+    "gql.r3": "Flux BagClaimEvent (rejoue le backlog puis le direct)",
+    "gql.r4": "CheckInPayload (carte d'embarquement + bagages + avertissements) \u00B7 erreurs : BOOKING_NOT_FOUND, CHECKIN_CLOSED, ALREADY_CHECKED_IN, BAGGAGE_TYPE_LIMIT, FLIGHT_DEPARTED, INVALID_REQUEST, LEGACY_TIMEOUT, LEGACY_UNAVAILABLE",
+    "gql.r5": "DropBagPayload (liste compl\u00E8te des bagages + avertissements) \u00B7 erreurs : BOOKING_NOT_FOUND, CHECKIN_REQUIRED, CHECKIN_CLOSED, BAGGAGE_TYPE_LIMIT, FLIGHT_DEPARTED, INVALID_REQUEST, LEGACY_TIMEOUT, LEGACY_UNAVAILABLE",
+    "gql.r6": "BagScanAck (disposition ACCEPTED/DUPLICATE/MALFORMED/UNKNOWN_ZONE/LIMIT_EXCEEDED en donn\u00E9es ; tapis 1..5 par FNV-1a, 0 si rejet\u00E9) \u00B7 erreurs : INVALID_REQUEST (sessionId vide)",
+    "gql.r7": "ResetScanSessionPayload (idempotent)",
+    "sec.flights": "Vols en cours",
+    "btn.refresh": "Rafra\u00EEchir",
+    "fl.th0": "Vol", "fl.th1": "Route", "fl.th2": "D\u00E9part (UTC)",
+    "fl.th3": "D\u00E9part dans", "fl.th4": "Statut", "fl.th5": "Porte",
+    "sec.bookings": "R\u00E9servations de d\u00E9monstration (d\u00E9terministes \u00B7 r\u00E9initialis\u00E9es \u00E0 chaque red\u00E9marrage)",
+    "bk.th0": "R\u00E9f", "bk.th1": "Passager", "bk.th2": "Cabine",
+    "bk.th3": "Sc\u00E9nario fig\u00E9", "bk.th4": "\u00C9tat actuel",
+    "bk.c0": "\u00C9conomique", "bk.c1": "Affaires", "bk.c2": "\u00C9conomique", "bk.c3": "Premi\u00E8re", "bk.c4": "\u00C9conomique",
+    "bk.s0": "Vol lointain : enregistrement et bagages nominaux (limites 23 / 8 kg)",
+    "bk.s1": "Enregistrement ouvert (~45 min) : tests de surnum\u00E9raire, limite soute 30 kg",
+    "bk.s2": "D\u00E9part dans ~29 min : l'enregistrement d\u00E9clenche CHECKIN_CLOSED (409)",
+    "bk.s3": "D\u00E9j\u00E0 enregistr\u00E9 : un nouvel enregistrement d\u00E9clenche ALREADY_CHECKED_IN ; d\u00E9p\u00F4t bagages pr\u00EAt",
+    "bk.s4": "Cible g\u00E9n\u00E9rique pour les tests PUT / DELETE",
+    "sec.rules": "R\u00E8gles m\u00E9tier \u2014 rep\u00E8res rapides",
+    "ru.th0": "Situation", "ru.th1": "Comportement backend", "ru.th2": "R\u00E9ponse du middleware",
+    "ru.r0": "Enregistrement \u00E0 moins de 30 min du d\u00E9part",
+    "ru.r1": "Bagage soute au-del\u00E0 de l'allowance (Premi\u00E8re/Affaires 30 kg, \u00C9conomique 23 kg)",
+    "ru.r2": "Bagage cabine au-del\u00E0 de l'allowance (Premi\u00E8re/Affaires 10 kg, \u00C9conomique 8 kg)",
+    "ru.r3": "Plus d'un bagage du m\u00EAme type par passager",
+    "ru.r4": "Bagages avant l'enregistrement",
+    "ru.r5": "R\u00E9servation / vol inconnu",
+    "ru.r6": "Vol annul\u00E9 ou parti",
+    "ru.r7": "Table des r\u00E9servations pleine (&gt; 50)",
+    "sec.warnex": "Exemple de traduction d'avertissement",
+    "sec.chaos": "Injection de pannes (en-t\u00EAte chaos)",
+    "sec.chaos.tag": "L'en-t\u00EAte fonctionne aussi en appelant directement les endpoints SOAP, et le middleware le relaie vers les backends.",
+    "sec.reset": "R\u00E9initialiser les donn\u00E9es de d\u00E9mo",
+    "sec.reset.tag": "<code>POST /api/v1/admin/reset</code> supprime toutes les r\u00E9servations, rejoue les cinq graines de d\u00E9mo fig\u00E9es et remet les compteurs d\u00E9terministes \u00E0 z\u00E9ro \u2014 rejouer un sc\u00E9nario sans red\u00E9marrer le syst\u00E8me. Op\u00E9ration globale (pas de sessions, aucune garantie de concurrence) ; les limites de d\u00E9bit s'appliquent.",
+    "btn.reset": "R\u00E9initialiser les donn\u00E9es de d\u00E9mo",
+    "sec.abuse": "Protection anti-abus",
+    "pr.th0": "P\u00E9rim\u00E8tre", "pr.th1": "Limite", "pr.th2": "Note",
+    "f.legal": "\u00A9 2018\u20132026 Huaxing YUAN \u00B7 Publi\u00E9 sous licence <a href=\"https://opensource.org/licenses/MIT\">MIT</a>. Hummingbird Airlines est une compagnie fictive destin\u00E9e aux d\u00E9monstrations de tests logiciels. L'\u00E9tat est en m\u00E9moire seule et r\u00E9initialis\u00E9 \u00E0 chaque red\u00E9marrage.",
+    "f.warn": "Serveur public de test gratuit, r\u00E9serv\u00E9 \u00E0 la compr\u00E9hension, l'apprentissage, la pratique et le test d'API. Tout abus, trafic de charge/attaque massif ou usage ill\u00E9gal est interdit ; l'op\u00E9rateur se r\u00E9serve le droit de bloquer sans pr\u00E9avis.",
+    "f.tm": "Aethrix\u00AE est une marque d\u00E9pos\u00E9e de Huaxing YUAN (EPO).",
+    "f.powered": "propuls\u00E9 par <strong>Aethrix Labs</strong>"
+  },
+
+  zh: {
+    __title: "Hummingbird Airlines — 示例 API 服务目录",
+    "h1.sub": "服务目录",
+    "lead": "一个示例 API 应用：可用来练习 Aethrix Studio 和学习 API 测试。一套 REST 中间件，前置三个模拟的 SOAP\u00A01.1 遗留系统；实时数据流（行李认领看板、行李扫描、登机口周转）分别运行于 SSE、gRPC、GraphQL 与 WebSocket；每个接口面都提供可下载的契约。先读懂这套 API 的设计，再动手调用。",
+    "sec.endpoints": "四个入口",
+    "c.rest.title": "EAI 网关",
+    "c.rest.tag": "仅做协议转换：预订增删改查、航班信息、值机、行李托运。不含业务校验。",
+    "ui.swagger": "Swagger UI",
+    "ui.openapi": "OpenAPI 文档",
+    "c.book.title": "预订系统",
+    "c.book.tag": "预订系统：CreateBooking、GetBooking、FindBookings、UpdateBooking、CancelBooking。",
+    "c.flm.title": "航班管理",
+    "c.flm.tag": "机场航班控制（只读）：SearchFlights、GetFlight。状态随时间推进：已排班 → 开放值机 → 登机中 → 已起飞。",
+    "c.lug.title": "行李管理",
+    "c.lug.tag": "机场离港控制：一次性 <code>CheckIn</code>（多态行李数组，每类最多一件）与单件托运 <code>RegisterBaggage</code>；超重可接受并返回遗留系统警告。",
+    "sec.streaming": "流与 gRPC（行李认领看板）",
+    "c.sse.title": "行李认领看板",
+    "c.sse.tag": "CDG 机场 2E 航站楼到达看板：1–5 号转盘由合作航司（HB/AF/BA/CA/LH/EK）供料，每 6 个看板分钟一条到达记录。加 <code>?speed=60</code> 可压缩时钟，几秒内即可看到状态变化。",
+    "li.sse.snap": "（快照）",
+    "li.sse.snap2": "（快照）",
+    "li.sse.live": "（实时，Last-Event-ID 可恢复）",
+    "c.grpc.tag": "明文 HTTP/2 上的 unary + 服务端流（prior knowledge）。已启用服务器反射。Proto 契约：<a href=\"/specs/baggageclaim.proto\">/specs/baggageclaim.proto</a>；开箱即用的控制台客户端在 <code>tools/GrpcProbe</code>。",
+    "li.grpc.port": "gRPC 端口：",
+    "sec.more": "更多协议（行李扫描 · GraphQL · 登机口数据流）",
+    "c.scan.tag": "配载区行李扫描器：客户端流式发送扫描，服务端对每件行李流式返回一个处置结果（accepted / duplicate / malformed / unknownZone / limitExceeded），并在客户端半关闭后发送会话小结收尾。无跨会话状态；收下的行李由确定性哈希路由到转盘。",
+    "li.scan.max": "每会话最多收 8 件行李，标签格式 <code>^[A-Z]{2}[0-9]{6}$</code>",
+    "li.scan.zones": "分区：MU1（默认）/ MU2 / MU3",
+    "li.scan.probe": "探测：",
+    "c.gql.tag": "行李认领看板 + 离港值机与行李托运：查询 <code>bagClaimBoard</code>、<code>bagClaimArrival</code>（航班不存在 → 错误码 ARRIVAL_NOT_FOUND）、<code>bagClaimBelt</code>，订阅 <code>bagClaimEvents(speed, sinceSeq)</code>，以及下方 GraphQL 操作表中列出的变更。",
+    "li.gql.ide": "（IDE 与 POST 端点）— v1：扁平行李输入",
+    "li.gql.v2": "（v2：同一接口，行李输入为 oneOf 变体）",
+    "li.gql.sub": "在同一 URL 上通过 graphql-transport-ws 提供订阅",
+    "c.gates.title": "登机口周转数据流",
+    "c.gates.tag": "出港侧登机口看板（1–8 号登机口，每个登机口每 16 个数据流分钟一班）：停机 → 登机 (+4) → 最后呼叫 (+8) → 推出 (+10) → 释放 (+12) → 完成 (+16)。",
+    "li.gates.frames": "帧类型：snapshot / gateEvent / ping-pong / 错误信封",
+    "sec.specs": "规格文档 — 可直接导入",
+    "sec.specs.tag": "本服务的每份机器可读契约都是一个普通 URL。将 Aethrix Studio（或 Postman、SoapUI、protoc、graphql-codegen 等）指向以下任一地址；每份文档均自包含，无外部引用。",
+    "spec.th.spec": "规格", "spec.th.format": "格式", "spec.th.covers": "覆盖内容",
+    "spec.c0": "行李认领 SSE 流 + 登机口 WebSocket（消息载荷 JSON schema）",
+    "spec.c1": "gRPC BaggageClaim 服务（unary + 服务端流）",
+    "spec.c2": "gRPC BaggageScanner 服务（双向流）",
+    "spec.c3": "行李认领看板上的查询、变更与订阅（v1：扁平行李输入）",
+    "spec.c4": "与 v1 相同的接口；行李输入采用 oneOf 模式（CheckedBagInput / CarryOnBagInput 二选一）",
+    "spec.c5": "REST v1 网关（预订、航班、行李、管理端）",
+    "spec.c6": "三个模拟的 SOAP 1.1 遗留系统",
+    "sec.gql": "GraphQL 操作 — v1：POST <a href=\"/graphql\">/graphql</a> · v2：<a href=\"/graphql/v2\">/graphql/v2</a>",
+    "sec.gql.tag": "根类型：<code>Query</code>、<code>Mutation</code>、<code>Subscription</code>。订阅运行在同一 URL 上，使用 graphql-transport-ws 协议。checkIn / dropBag 走与 <code>POST /api/v1/bookings/*</code> 相同的遗留行李路径，各传输层的错误码完全一致。scanBag 会话由 sessionId 参数界定，闲置 30 分钟后过期。表中列出 v1（扁平行李输入）；v2 提供相同的操作，行李以 oneOf 变体声明（<code>checked</code> / <code>carryOn</code>）。",
+    "gql.th0": "方法 / 地址", "gql.th1": "操作", "gql.th2": "参数",
+    "gql.th3": "返回 · 错误码（extensions.code）",
+    "gql.r0": "BagClaimSnapshot（转盘 + 到达）",
+    "gql.r1": "BagClaimArrival · 错误：ARRIVAL_NOT_FOUND",
+    "gql.r2": "BagClaimBelt 或 null",
+    "gql.r3": "BagClaimEvent 流（先重放积压，再进入实时）",
+    "gql.r4": "CheckInPayload（登机牌 + 行李 + 警告）· 错误：BOOKING_NOT_FOUND, CHECKIN_CLOSED, ALREADY_CHECKED_IN, BAGGAGE_TYPE_LIMIT, FLIGHT_DEPARTED, INVALID_REQUEST, LEGACY_TIMEOUT, LEGACY_UNAVAILABLE",
+    "gql.r5": "DropBagPayload（完整行李清单 + 警告）· 错误：BOOKING_NOT_FOUND, CHECKIN_REQUIRED, CHECKIN_CLOSED, BAGGAGE_TYPE_LIMIT, FLIGHT_DEPARTED, INVALID_REQUEST, LEGACY_TIMEOUT, LEGACY_UNAVAILABLE",
+    "gql.r6": "BagScanAck（处置结果 ACCEPTED/DUPLICATE/MALFORMED/UNKNOWN_ZONE/LIMIT_EXCEEDED 作为数据返回；转盘 1..5 由 FNV-1a 决定，拒绝时为 0）· 错误：INVALID_REQUEST（sessionId 为空）",
+    "gql.r7": "ResetScanSessionPayload（幂等）",
+    "sec.flights": "航班实况",
+    "btn.refresh": "刷新",
+    "fl.th0": "航班", "fl.th1": "航线", "fl.th2": "起飞时间 (UTC)",
+    "fl.th3": "距起飞", "fl.th4": "状态", "fl.th5": "登机口",
+    "sec.bookings": "示例预订（确定性 · 每次重启后重置）",
+    "bk.th0": "编号", "bk.th1": "乘客", "bk.th2": "舱位",
+    "bk.th3": "固定场景", "bk.th4": "实时状态",
+    "bk.c0": "经济舱", "bk.c1": "公务舱", "bk.c2": "经济舱", "bk.c3": "头等舱", "bk.c4": "经济舱",
+    "bk.s0": "远期航班：正常值机与行李流程（限额 23 / 8 kg）",
+    "bk.s1": "值机开放中（约 45 分钟）：超重测试，托运限额 30 kg",
+    "bk.s2": "约 29 分钟后起飞：值机触发 CHECKIN_CLOSED (409)",
+    "bk.s3": "已值机：再次值机触发 ALREADY_CHECKED_IN；托运就绪",
+    "bk.s4": "用于 PUT / DELETE 测试的通用目标",
+    "sec.rules": "业务规则速查",
+    "ru.th0": "情形", "ru.th1": "后端行为", "ru.th2": "中间件响应",
+    "ru.r0": "距起飞不足 30 分钟值机",
+    "ru.r1": "托运行李超限额（头等/公务 30 kg，经济 23 kg）",
+    "ru.r2": "手提行李超限额（头等/公务 10 kg，经济 8 kg）",
+    "ru.r3": "每名乘客同一类型行李多于一件",
+    "ru.r4": "值机前托运行李",
+    "ru.r5": "未知预订 / 航班",
+    "ru.r6": "航班已取消或已起飞",
+    "ru.r7": "预订表已满（> 50）",
+    "sec.warnex": "警告转译示例",
+    "sec.chaos": "故障注入（chaos 请求头）",
+    "sec.chaos.tag": "直接调用 SOAP 端点时该请求头同样有效，并由中间件转发给后端。",
+    "sec.reset": "重置演示数据",
+    "sec.reset.tag": "<code>POST /api/v1/admin/reset</code> 清空全部预订，重放五个冻结的演示种子并重启确定性计数器——无需重启系统即可重放场景。全局操作（无会话、无并发保证）；受速率限制。",
+    "btn.reset": "立即重置演示数据",
+    "sec.abuse": "滥用防护",
+    "pr.th0": "范围", "pr.th1": "上限", "pr.th2": "说明",
+    "f.legal": "© 2018–2026 Huaxing YUAN · 以 <a href=\"https://opensource.org/licenses/MIT\">MIT 许可证</a>发布。Hummingbird Airlines 是一家虚构航空公司，用于软件测试演示。状态仅存于内存，重启后重置。",
+    "f.warn": "这是免费的公开测试服务器，仅用于理解、学习、练习和 API 测试。禁止滥用、大规模负载/攻击流量及任何非法用途；运营方保留不经通知封禁违规者的权利。",
+    "f.tm": "Aethrix® 是 Huaxing YUAN (EPO) 的注册商标。",
+    "f.powered": "由 <strong>Aethrix Labs</strong> 提供支持"
+  }
+};
+
+(function () {
+  let stored = null;
+  try { stored = localStorage.getItem("hb.lang"); } catch { stored = null; }
+  let next = (stored === "fr" || stored === "zh" || stored === "en") ? stored : null;
+  if (!next) {
+    const nav = (navigator.language || "en").toLowerCase();
+    next = nav.indexOf("zh") === 0 ? "zh" : nav.indexOf("fr") === 0 ? "fr" : "en";
+  }
+
+  function setLang(lang) {
+    try { localStorage.setItem("hb.lang", lang); } catch { /* storage blocked */ }
+    const dict = I18N[lang];
+    document.documentElement.lang = lang === "zh" ? "zh-CN" : lang === "fr" ? "fr" : "en";
+    document.title = dict.__title;
+    document.querySelectorAll("[data-i18n]").forEach(function (node) {
+      const value = dict[node.dataset.i18n];
+      if (value !== undefined) node.innerHTML = value;
+    });
+    document.querySelectorAll(".lang").forEach(function (btn) {
+      btn.setAttribute("aria-pressed", String(btn.dataset.lang === lang));
+    });
+  }
+
+  document.querySelectorAll(".lang").forEach(function (btn) {
+    btn.addEventListener("click", function () { setLang(btn.dataset.lang); });
+  });
+
+  setLang(next);
 })();
 </script>
 </body>
